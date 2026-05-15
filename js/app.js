@@ -1074,14 +1074,31 @@ function setupFiltersUI() {
     applyLang();
   });
 
-  // Toggle sidebar
-  document.getElementById('sidebar-toggle').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.add('collapsed');
-    document.getElementById('sidebar-open').hidden = false;
-  });
-  document.getElementById('sidebar-open').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.remove('collapsed');
-    document.getElementById('sidebar-open').hidden = true;
+  // Toggle sidebar (funciona em desktop e mobile via classe .collapsed)
+  const sidebar = document.getElementById('sidebar');
+  const openBtn = document.getElementById('sidebar-open');
+  const isMobile = () => matchMedia('(max-width: 640px)').matches;
+
+  function closeSidebar() {
+    sidebar.classList.add('collapsed');
+    openBtn.hidden = false;
+  }
+  function openSidebar() {
+    sidebar.classList.remove('collapsed');
+    openBtn.hidden = true;
+  }
+
+  document.getElementById('sidebar-toggle').addEventListener('click', closeSidebar);
+  openBtn.addEventListener('click', openSidebar);
+
+  // No mobile, começar com sidebar recolhida para não tapar o mapa
+  if (isMobile()) closeSidebar();
+
+  // Fechar sidebar ao clicar no mapa (mobile) — UX padrão de drawer
+  document.getElementById('map').addEventListener('click', () => {
+    if (isMobile() && !sidebar.classList.contains('collapsed')) {
+      closeSidebar();
+    }
   });
 }
 

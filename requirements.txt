@@ -3,3 +3,4 @@ openpyxl
 rapidfuzz
 requests
 shapely
+pytest

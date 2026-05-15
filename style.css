@@ -523,11 +523,14 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: 85vw;
+    max-width: 360px;
     z-index: 30;
-    transform: translateX(-100%);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
   }
-  #sidebar.open {
-    transform: translateX(0);
+  /* No mobile, .collapsed esconde via translate em vez de width:0 */
+  #sidebar.collapsed {
+    width: 85vw;
+    transform: translateX(-100%);
   }
   #map-wrap {
     grid-column: 1;
