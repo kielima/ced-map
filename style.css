@@ -318,6 +318,12 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   pointer-events: none;
   z-index: 5;
 }
+#map-stats .empty-hint { display: none; color: #ffb86b; }
+#map-stats.empty {
+  background: rgba(180, 80, 40, 0.92);
+  border: 1px solid #ffb86b;
+}
+#map-stats.empty .empty-hint { display: inline; margin-left: 4px; }
 
 /* Botão para reabrir sidebar */
 #sidebar-open {
