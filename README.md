@@ -72,12 +72,23 @@ python setup.py                          # converte CSV → banco.json
 
 ---
 
+## Funcionalidades
+
+- 🗺️ **3 camadas hierárquicas**: países (admin-0), estados/províncias (admin-1), municípios (admin-2 top-10) com lazy-load por zoom
+- 📍 **1.251 jurisdições geocodificadas** exibidas como pontos com clustering nativo MapLibre
+- 🔍 **Filtros dinâmicos**: camada (CED/WWA/quase), nível (nacional/estadual/municipal), período (1990–2026), busca por nome
+- 📊 **Painel de estatísticas** com Chart.js (timeline, top países, distribuição por nível)
+- 🔗 **Deep linking por URL** — partilhe a vista actual copiando o link
+- 💾 **Export CSV** dos dados filtrados
+- 🌙 **Dark mode** + 🌐 **i18n** PT/EN
+- 📱 **PWA installable** com cache offline (service worker)
+
 ## Estado atual (mai/2026)
 
 - **1.973 jurisdições** · **74 países**
-- Fase 1 ✅ PWA base com filtros e info panel
-- Fase 2 ✅ Camada de estados/províncias (Natural Earth 50m)
-- Fase 3 🔴 Pontos geocodificados por município (próxima)
+- **1.251/1.285** jurisdições sub-nacionais com lat/lon (97.4%)
+- **1.204/1.285** com ISO casado com Natural Earth admin-1 (93.7%)
+- Fontes: CEDAMIA (1.847) · ALMOST-CED (91) · WWA (26) · MANUAL (9)
 
 ---
 
