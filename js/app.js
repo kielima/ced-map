@@ -35,6 +35,7 @@ const LANG = {
     'stat-countries-label': 'países',
     'btn-filters':          '☰ Filtros',
     'empty-hint':           '— ajuste os filtros para ver dados',
+    'admin2-loading':       'Carregando municípios…',
     'loading':              'Carregando dados…',
     'info-declaracoes':     'Declarações',
     'info-atribuicao':      'Atribuição WWA',
@@ -90,6 +91,7 @@ const LANG = {
     'stat-countries-label': 'countries',
     'btn-filters':          '☰ Filters',
     'empty-hint':           '— adjust filters to see data',
+    'admin2-loading':       'Loading municipalities…',
     'loading':              'Loading data…',
     'info-declaracoes':     'Declarations',
     'info-atribuicao':      'WWA Attribution',
@@ -411,7 +413,23 @@ async function maybeLoadAdmin2() {
   if (admin2State !== 'idle') return;
   if (map.getZoom() < 6) return;
   admin2State = 'loading';
-  await loadAdmin2Layer();
+  showAdmin2Loading(true);
+  try {
+    await loadAdmin2Layer();
+  } finally {
+    showAdmin2Loading(false);
+  }
+}
+
+function showAdmin2Loading(visible) {
+  let el = document.getElementById('admin2-loading');
+  if (!el && visible) {
+    el = document.createElement('div');
+    el.id = 'admin2-loading';
+    el.textContent = t('admin2-loading') || 'Carregando municípios…';
+    document.getElementById('map-wrap').appendChild(el);
+  }
+  if (el) el.style.display = visible ? 'block' : 'none';
 }
 
 async function loadAdmin2Layer() {
