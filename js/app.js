@@ -928,8 +928,10 @@ function clearHighlights() {
 // ── Painel de informação ──────────────────────────────────────────────────────
 
 function showInfoPanel(displayName) {
+  const panel = document.getElementById('info-panel');
+  panel.classList.remove('hidden');
   document.getElementById('info-title').textContent = displayName;
-  document.getElementById('info-panel').classList.remove('hidden');
+  if (typeof panel._snapToPeek === 'function') panel._snapToPeek();
   renderAllSections();
 }
 
@@ -1207,6 +1209,74 @@ function setupFiltersUI() {
       closeSidebar();
     }
   });
+
+  // ── Bottom-sheet drag ────────────────────────────────────────────────────
+  initBottomSheetDrag();
+}
+
+function initBottomSheetDrag() {
+  const panel  = document.getElementById('info-panel');
+  const handle = document.getElementById('info-drag-handle');
+  const PEEK   = parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue('--info-h')
+  ) || 260;
+
+  let dragging = false, startY = 0, startH = 0;
+
+  function expandedH() {
+    return window.innerHeight - 52;
+  }
+
+  function snapTo(h) {
+    panel.style.transition = 'height 0.28s cubic-bezier(0.4,0,0.2,1)';
+    panel.style.height = h + 'px';
+    setTimeout(() => { panel.style.transition = ''; }, 300);
+  }
+
+  function onStart(clientY) {
+    if (panel.classList.contains('hidden')) return;
+    dragging = true;
+    startY   = clientY;
+    startH   = panel.offsetHeight;
+    panel.style.transition = 'none';
+    panel.style.height     = startH + 'px';
+  }
+
+  function onMove(clientY) {
+    if (!dragging) return;
+    const delta = startY - clientY;
+    const newH  = Math.min(Math.max(startH + delta, PEEK * 0.35), expandedH());
+    panel.style.height = newH + 'px';
+  }
+
+  function onEnd(clientY) {
+    if (!dragging) return;
+    dragging = false;
+    const velocity = startY - clientY;
+    const midPoint = (PEEK + expandedH()) / 2;
+    if (velocity > 50 || panel.offsetHeight > midPoint) {
+      snapTo(expandedH());
+    } else {
+      snapTo(PEEK);
+    }
+  }
+
+  handle.addEventListener('touchstart', e => {
+    onStart(e.touches[0].clientY);
+  }, { passive: true });
+  window.addEventListener('touchmove', e => {
+    if (dragging) { e.preventDefault(); onMove(e.touches[0].clientY); }
+  }, { passive: false });
+  window.addEventListener('touchend', e => {
+    onEnd(e.changedTouches[0].clientY);
+  });
+
+  handle.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientY); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
+  window.addEventListener('mouseup',   e => { if (dragging) onEnd(e.clientY); });
+
+  // Expor resetToPeek para showInfoPanel
+  panel._snapToPeek = () => snapTo(PEEK);
 }
 
 function flyToCountry(iso, name) {
