@@ -266,7 +266,31 @@ function setupMap(hashState) {
   map.on('error', e => console.warn('MapLibre:', e.error?.message));
 }
 
+/** Pinta todos os layers de água (oceano, lagos, rios) em branco. */
+function recolorWaterToWhite() {
+  const layers = map.getStyle()?.layers ?? [];
+  for (const layer of layers) {
+    const id = layer.id.toLowerCase();
+    if (!id.includes('water') && !id.includes('ocean') && !id.includes('sea')) continue;
+    try {
+      if (layer.type === 'fill') {
+        map.setPaintProperty(layer.id, 'fill-color', '#ffffff');
+        map.setPaintProperty(layer.id, 'fill-outline-color', '#ffffff');
+      } else if (layer.type === 'line') {
+        map.setPaintProperty(layer.id, 'line-color', '#ffffff');
+      } else if (layer.type === 'background') {
+        map.setPaintProperty(layer.id, 'background-color', '#ffffff');
+      }
+    } catch (err) {
+      // Layer pode não aceitar a propriedade — ignora silenciosamente
+    }
+  }
+}
+
 async function onMapLoad(hashState) {  // async: aguarda loadAdmin1Layer()
+  // Mar/oceano em branco (override do estilo liberty do OpenFreeMap)
+  recolorWaterToWhite();
+
   // Carregar GeoJSON de países (Natural Earth 110m)
   let countriesGeo;
   try {
