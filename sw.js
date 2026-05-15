@@ -3,7 +3,7 @@
  * Estratégia: Cache-first para assets estáticos, Network-first para dados.
  */
 
-const CACHE_VERSION = 'ced-map-v13';
+const CACHE_VERSION = 'ced-map-v14';
 const CACHE_STATIC  = `${CACHE_VERSION}-static`;
 const CACHE_DATA    = `${CACHE_VERSION}-data`;
 
