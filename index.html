@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=3" rel="stylesheet">
+  <link href="style.css?v=4" rel="stylesheet">
 </head>
 <body>
 
@@ -100,6 +100,9 @@
         <div class="legend-row"><span class="dot" data-color="roxo"></span> Quase-CED / rejeitada</div>
         <div class="legend-row"><span class="dot" data-color="cinza"></span> Sem registro</div>
       </div>
+      <button id="export-csv" type="button" title="Baixar as entradas que passam pelos filtros ativos">
+        ↓ Exportar CSV (<span id="export-count">–</span>)
+      </button>
       <p class="sources">
         Fontes: <a href="https://cedamia.org" target="_blank" rel="noopener">CEDAMIA</a> ·
         <a href="https://worldweatherattribution.org" target="_blank" rel="noopener">WWA</a> ·
@@ -163,6 +166,6 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-<script type="module" src="js/app.js?v=8"></script>
+<script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>
