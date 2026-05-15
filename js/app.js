@@ -28,7 +28,7 @@ const LAYER_MAP = {
 
 let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
-let selectedIso = null;   // iso_3 selecionado no info-panel
+let selectedScope = null; // { iso, ne_id?, admin2_name?, displayName }
 let activeTab = 'declaracoes'; // tab ativa no info-panel
 
 const filters = {
@@ -151,10 +151,14 @@ async function onMapLoad() {  // async: aguarda loadAdmin1Layer()
   // Admin-2 (top-5 países) lazy: carrega só quando o usuário aproxima
   map.on('zoom', maybeLoadAdmin2);
 
-  // Interatividade
-  map.on('click', 'countries-fill', onCountryClick);
+  // Hover de país (mantém handler por layer — cursor + tracking)
   map.on('mousemove', 'countries-fill', onCountryHover);
   map.on('mouseleave', 'countries-fill', onCountryLeave);
+
+  // Clique unificado: queryRenderedFeatures com lista priorizada evita o problema
+  // de event bubbling do MapLibre (clique em admin2 também dispararia admin1 e
+  // countries, e o último handler venceria).
+  map.on('click', onMapClick);
 
   hideLoading();
   setupFiltersUI();
@@ -218,8 +222,7 @@ async function loadAdmin1Layer() {
       },
     }, 'countries-highlight');
 
-    // Interatividade na camada admin-1
-    map.on('click', 'admin1-fill', onAdmin1Click);
+    // Hover de admin-1 (clique é tratado no handler global onMapClick)
     map.on('mousemove', 'admin1-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'admin1-fill', () => { map.getCanvas().style.cursor = ''; });
 
@@ -286,15 +289,7 @@ async function loadAdmin2Layer() {
       },
     }, 'countries-highlight');
 
-    map.on('click', 'admin2-fill', e => {
-      if (!e.features.length) return;
-      const props = e.features[0].properties;
-      const iso = (props.ISO_3 || '').toUpperCase();
-      if (!iso) return;
-      const entry = banco.find(b => b.iso_3 === iso);
-      selectCountry(iso, entry?.pais || iso);
-    });
-
+    // Clique de admin-2 é tratado pelo handler global onMapClick.
     admin2State = 'loaded';
     console.info(`Admin-2 carregado: ${geo.features?.length ?? '?'} polígonos (top-5).`);
   } catch (err) {
@@ -446,15 +441,7 @@ function loadPointsLayer() {
     });
   });
 
-  // Clique em ponto individual → abre painel do país
-  map.on('click', 'unclustered-point', e => {
-    const props = e.features[0].properties;
-    const iso = (props.iso || '').toUpperCase();
-    if (!iso) return;
-    const banco_entry = banco.find(b => b.iso_3 === iso);
-    const name = banco_entry?.pais || iso;
-    selectCountry(iso, name);
-  });
+  // Clique em ponto individual é tratado pelo handler global onMapClick.
 
   // Cursor pointer ao passar por cluster/ponto
   for (const id of ['clusters', 'unclustered-point']) {
@@ -487,12 +474,13 @@ function buildPointsGeoJSON() {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
       properties: {
-        iso:      e.iso_3,
-        entidade: e.entidade,
-        regiao:   e.regiao || '',
-        ano:      e.ano || '',
-        cor:      e.cor_mapa,
-        fonte:    e.fonte,
+        iso:        e.iso_3,
+        entidade:   e.entidade,
+        regiao:     e.regiao || '',
+        ano:        e.ano || '',
+        cor:        e.cor_mapa,
+        fonte:      e.fonte,
+        adm1_ne_id: e.adm1_ne_id ?? null,
       },
     });
   }
@@ -618,63 +606,138 @@ function onCountryLeave() {
   map.getCanvas().style.cursor = '';
 }
 
-function onCountryClick(e) {
-  if (!e.features.length) return;
-  const feat = e.features[0];
+/**
+ * Handler unificado de clique. Usa queryRenderedFeatures com lista priorizada
+ * para escolher o escopo mais granular (ponto > admin2 > admin1 > país),
+ * evitando que cliques em polígonos empilhados disparem múltiplos handlers.
+ */
+function onMapClick(e) {
+  const layers = ['unclustered-point', 'admin2-fill', 'admin1-fill', 'countries-fill']
+    .filter(id => map.getLayer(id));
+  const hits = map.queryRenderedFeatures(e.point, { layers });
+  if (!hits.length) return;
+  const feat = hits[0];
+  switch (feat.layer.id) {
+    case 'unclustered-point': return onPointClick(feat);
+    case 'admin2-fill':       return onAdmin2Click(feat);
+    case 'admin1-fill':       return onAdmin1Click(feat);
+    case 'countries-fill':    return onCountryClick(feat);
+  }
+}
+
+function onCountryClick(feat) {
   const iso = feat.properties.ADM0_A3;
+  if (!iso) return;
   const name = feat.properties.NAME_PT
     || feat.properties.NAME_LONG
     || feat.properties.NAME
     || iso;
-
-  selectCountry(iso, name);
+  selectScope({ iso }, name);
 }
 
-/** Clique em polígono admin-1 — encontra o país pai e abre o painel */
-function onAdmin1Click(e) {
-  if (!e.features.length) return;
-  const props = e.features[0].properties;
-  // adm0_a3 no Natural Earth corresponde ao iso_3 do banco
+/** Clique em polígono admin-1 — escopo = país + ne_id do estado */
+function onAdmin1Click(feat) {
+  const props = feat.properties;
   const iso = (props.adm0_a3 || '').toUpperCase();
   if (!iso) return;
-  // Nome do país a partir do banco
+  const ne_id = feat.id; // MapLibre populou via promoteId: 'ne_id'
   const entry = banco.find(b => b.iso_3 === iso);
-  const name = entry?.pais || iso;
-  selectCountry(iso, name);
+  const paisName  = entry?.pais || iso;
+  const stateName = props.name_en || props.name || '';
+  const displayName = stateName ? `${paisName} › ${stateName}` : paisName;
+  selectScope({ iso, ne_id }, displayName);
 }
 
-function selectCountry(iso, name) {
-  // Deselecionar anterior
-  if (selectedIso && selectedIso !== iso) {
-    map.setFeatureState({ source: 'countries', id: selectedIso }, { selected: false });
-  }
-  selectedIso = iso;
-  map.setFeatureState({ source: 'countries', id: iso }, { selected: true });
+/** Clique em polígono admin-2 — escopo = país + nome do município */
+function onAdmin2Click(feat) {
+  const props = feat.properties;
+  const iso = (props.ISO_3 || '').toUpperCase();
+  if (!iso) return;
+  const admin2_name = props.NAME_2 || '';
+  if (!admin2_name) return;
+  const entry = banco.find(b => b.iso_3 === iso);
+  const paisName = entry?.pais || iso;
+  const displayName = `${paisName} › ${admin2_name}`;
+  selectScope({ iso, admin2_name }, displayName);
+}
 
-  showInfoPanel(iso, name);
+/** Clique em ponto individual — drill até o estado se conhecido. */
+function onPointClick(feat) {
+  const props = feat.properties;
+  const iso = (props.iso || '').toUpperCase();
+  if (!iso) return;
+  const entry = banco.find(b => b.iso_3 === iso);
+  const paisName = entry?.pais || iso;
+  // adm1_ne_id pode vir como número ou string (depende do MapLibre serialization)
+  const ne_id_raw = props.adm1_ne_id;
+  const ne_id = (ne_id_raw === null || ne_id_raw === '' || ne_id_raw === undefined)
+    ? null : Number(ne_id_raw);
+  if (ne_id && !Number.isNaN(ne_id)) {
+    const region = props.regiao || '';
+    const displayName = region ? `${paisName} › ${region}` : paisName;
+    selectScope({ iso, ne_id }, displayName);
+  } else {
+    selectScope({ iso }, paisName);
+  }
+}
+
+/** Aplica o escopo: atualiza highlights e abre painel. */
+function selectScope(scope, displayName) {
+  clearHighlights();
+  selectedScope = { ...scope, displayName };
+  if (scope.iso && map.getSource('countries')) {
+    map.setFeatureState({ source: 'countries', id: scope.iso }, { selected: true });
+  }
+  if (scope.ne_id != null && map.getSource('admin1')) {
+    map.setFeatureState({ source: 'admin1', id: scope.ne_id }, { selected: true });
+  }
+  showInfoPanel(displayName);
+}
+
+/** Limpa highlights do escopo atual. Idempotente. */
+function clearHighlights() {
+  if (!selectedScope) return;
+  if (selectedScope.iso && map.getSource('countries')) {
+    map.setFeatureState({ source: 'countries', id: selectedScope.iso }, { selected: false });
+  }
+  if (selectedScope.ne_id != null && map.getSource('admin1')) {
+    map.setFeatureState({ source: 'admin1', id: selectedScope.ne_id }, { selected: false });
+  }
 }
 
 // ── Painel de informação ──────────────────────────────────────────────────────
 
-function showInfoPanel(iso, name) {
-  document.getElementById('info-title').textContent = name;
+function showInfoPanel(displayName) {
+  document.getElementById('info-title').textContent = displayName;
   document.getElementById('info-panel').classList.remove('hidden');
-  renderInfoTab(iso, activeTab);
+  renderInfoTab(activeTab);
 }
 
 function hideInfoPanel() {
   document.getElementById('info-panel').classList.add('hidden');
-  if (selectedIso) {
-    map.setFeatureState({ source: 'countries', id: selectedIso }, { selected: false });
-  }
-  selectedIso = null;
+  clearHighlights();
+  selectedScope = null;
 }
 
-function renderInfoTab(iso, tab) {
+/** Filtra entradas do banco pelo escopo selecionado (cascata iso → ne_id → admin2). */
+function filteredForScope(scope) {
+  let xs = banco.filter(e => e.iso_3 === scope.iso);
+  if (scope.ne_id != null) {
+    xs = xs.filter(e => e.adm1_ne_id === scope.ne_id);
+  }
+  if (scope.admin2_name) {
+    const target = normName(scope.admin2_name);
+    xs = xs.filter(e => normName(e.entidade) === target);
+  }
+  return xs;
+}
+
+function renderInfoTab(tab) {
   const list = document.getElementById('info-list');
   list.innerHTML = '';
+  if (!selectedScope) return;
 
-  const allEntries = banco.filter(e => e.iso_3 === iso);
+  const allEntries = filteredForScope(selectedScope);
 
   let entries;
   if (tab === 'declaracoes') {
@@ -686,7 +749,8 @@ function renderInfoTab(iso, tab) {
   }
 
   if (!entries.length) {
-    list.innerHTML = `<li class="no-data">Sem dados nesta categoria para ${iso}.</li>`;
+    const label = escHtml(selectedScope.displayName || selectedScope.iso || '');
+    list.innerHTML = `<li class="no-data">Sem dados nesta categoria para ${label}.</li>`;
     return;
   }
 
@@ -818,8 +882,8 @@ function setupFiltersUI() {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeTab = btn.dataset.tab;
-      if (selectedIso) {
-        renderInfoTab(selectedIso, activeTab);
+      if (selectedScope) {
+        renderInfoTab(activeTab);
       }
     });
   });
@@ -853,7 +917,7 @@ function flyToCountry(iso, name) {
       }
     }
   }
-  selectCountry(iso, name);
+  selectScope({ iso }, name);
 }
 
 // ── Atualização de estado ─────────────────────────────────────────────────────
@@ -881,8 +945,8 @@ function applyFilters() {
   updateLayerCounts();
 
   // Atualizar info panel se aberto
-  if (selectedIso) {
-    renderInfoTab(selectedIso, activeTab);
+  if (selectedScope) {
+    renderInfoTab(activeTab);
   }
 }
 
