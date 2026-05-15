@@ -896,6 +896,11 @@ function setupFiltersUI() {
   // Exportar CSV (entradas que passam pelos filtros ativos)
   document.getElementById('export-csv').addEventListener('click', exportFilteredAsCSV);
 
+  // Painel de estatísticas
+  document.getElementById('stats-btn').addEventListener('click', openStatsPanel);
+  document.getElementById('stats-close').addEventListener('click', closeStatsPanel);
+  document.getElementById('stats-backdrop').addEventListener('click', closeStatsPanel);
+
   // Toggle sidebar
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.add('collapsed');
@@ -957,6 +962,11 @@ function applyFilters() {
     renderAllSections();
   }
 
+  // Atualizar gráficos se painel de estatísticas aberto
+  if (statsCharts.timeline && !document.getElementById('stats-panel').classList.contains('hidden')) {
+    updateCharts();
+  }
+
   writeStateToHash();
 }
 
@@ -988,6 +998,159 @@ function hideLoading() {
   const el = document.getElementById('loading');
   el.classList.add('done');
   setTimeout(() => el.remove(), 500);
+}
+
+// ── Painel de estatísticas (Chart.js) ─────────────────────────────────────────
+
+const statsCharts = { timeline: null, countries: null, nivel: null };
+
+function openStatsPanel() {
+  document.getElementById('stats-panel').classList.remove('hidden');
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js não carregado — verifique o CDN.');
+    return;
+  }
+  if (!statsCharts.timeline) createCharts();
+  updateCharts();
+  document.addEventListener('keydown', onStatsKey);
+}
+
+function closeStatsPanel() {
+  document.getElementById('stats-panel').classList.add('hidden');
+  document.removeEventListener('keydown', onStatsKey);
+}
+
+function onStatsKey(e) {
+  if (e.key === 'Escape') closeStatsPanel();
+}
+
+function createCharts() {
+  // Defaults globais do Chart.js — tipografia consistente com o app
+  Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
+  Chart.defaults.color = '#2a3a50';
+
+  statsCharts.timeline = new Chart(document.getElementById('chart-timeline'), {
+    type: 'bar',
+    data: { labels: [], datasets: [] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      scales: {
+        x: { stacked: true, grid: { display: false }, title: { display: true, text: 'Ano' } },
+        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Entradas' } },
+      },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { mode: 'index', intersect: false },
+      },
+    },
+  });
+
+  statsCharts.countries = new Chart(document.getElementById('chart-countries'), {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [{ label: 'Entradas', data: [], backgroundColor: [], borderWidth: 0 }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 } },
+        y: { grid: { display: false } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.parsed.x.toLocaleString('pt-BR')} entradas`,
+          },
+        },
+      },
+    },
+  });
+
+  statsCharts.nivel = new Chart(document.getElementById('chart-nivel'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Nacional', 'Estadual', 'Municipal'],
+      datasets: [{
+        data: [0, 0, 0],
+        backgroundColor: [COLORS.vermelho, COLORS.laranja, COLORS.amarelo],
+        borderWidth: 2,
+        borderColor: '#ffffff',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+      },
+    },
+  });
+}
+
+function updateCharts() {
+  if (!statsCharts.timeline) return;
+  const entries = getFilteredEntries();
+
+  // Resumo no header do modal
+  const isos = new Set(entries.map(e => e.iso_3).filter(Boolean));
+  document.getElementById('stats-summary').textContent =
+    `${entries.length.toLocaleString('pt-BR')} entradas · ${isos.size} países`;
+
+  // ── Timeline empilhada por ano e fonte ─────────────────────────────────────
+  const MIN_Y = 1990, MAX_Y = 2026;
+  const years = {};
+  for (let y = MIN_Y; y <= MAX_Y; y++) years[y] = { ced: 0, wwa: 0, almost: 0 };
+  for (const e of entries) {
+    const y = Number(e.ano);
+    if (!Number.isFinite(y) || y < MIN_Y || y > MAX_Y) continue;
+    if (['CEDAMIA', 'MANUAL'].includes(e.fonte)) years[y].ced++;
+    else if (e.fonte === 'WWA') years[y].wwa++;
+    else if (e.fonte === 'ALMOST-CED') years[y].almost++;
+  }
+  const yearLabels = Object.keys(years);
+  statsCharts.timeline.data.labels = yearLabels;
+  statsCharts.timeline.data.datasets = [
+    { label: 'CED formal', data: yearLabels.map(y => years[y].ced),    backgroundColor: COLORS.vermelho },
+    { label: 'WWA',        data: yearLabels.map(y => years[y].wwa),    backgroundColor: COLORS.azul },
+    { label: 'Quase-CED',  data: yearLabels.map(y => years[y].almost), backgroundColor: COLORS.roxo },
+  ];
+  statsCharts.timeline.update();
+
+  // ── Top 10 países ──────────────────────────────────────────────────────────
+  const byCountry = {};
+  for (const e of entries) {
+    if (!e.iso_3) continue;
+    const k = e.iso_3;
+    if (!byCountry[k]) byCountry[k] = { name: e.pais || k, count: 0, cores: [] };
+    byCountry[k].count++;
+    byCountry[k].cores.push(e.cor_mapa);
+  }
+  const top = Object.values(byCountry).sort((a, b) => b.count - a.count).slice(0, 10);
+  statsCharts.countries.data.labels = top.map(c => c.name);
+  statsCharts.countries.data.datasets[0].data = top.map(c => c.count);
+  statsCharts.countries.data.datasets[0].backgroundColor = top.map(c => {
+    const dominant = COLOR_PRIORITY.find(col => c.cores.includes(col)) ?? 'cinza';
+    return COLORS[dominant];
+  });
+  statsCharts.countries.update();
+
+  // ── Distribuição por nível ────────────────────────────────────────────────
+  let nNac = 0, nEst = 0, nMun = 0;
+  for (const e of entries) {
+    if (e.nivel === 'nacional')      nNac++;
+    else if (e.nivel === 'estadual') nEst++;
+    else if (e.nivel === 'municipal') nMun++;
+  }
+  statsCharts.nivel.data.datasets[0].data = [nNac, nEst, nMun];
+  statsCharts.nivel.update();
 }
 
 // ── Exportar CSV ──────────────────────────────────────────────────────────────

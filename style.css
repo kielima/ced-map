@@ -247,21 +247,26 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 .dot[data-color="roxo"]     { background: var(--c-roxo); }
 .dot[data-color="cinza"]    { background: var(--c-cinza); }
 
-#export-csv {
-  width: 100%;
+.footer-actions {
+  display: flex;
+  gap: 6px;
   margin-bottom: 10px;
-  padding: 7px 10px;
+}
+.footer-actions > button {
+  flex: 1;
+  padding: 7px 8px;
   background: var(--pill-bg);
   border: 1px solid var(--border);
   color: var(--text-main);
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
-#export-csv:hover { background: var(--pill-active); border-color: var(--accent); }
-#export-csv:disabled { opacity: 0.5; cursor: not-allowed; }
+.footer-actions > button:hover { background: var(--pill-active); border-color: var(--accent); }
+.footer-actions > button:disabled { opacity: 0.5; cursor: not-allowed; }
 #export-csv #export-count { color: var(--text-muted); font-weight: 400; }
 
 .sources { font-size: 0.68rem; color: var(--text-muted); }
@@ -515,4 +520,86 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
      e a informação geral não é relevante naquele momento. */
   #map-stats { bottom: 8px; left: 8px; }
   #map-wrap:has(#info-panel:not(.hidden)) #map-stats { display: none; }
+}
+
+/* ── Painel de estatísticas (modal) ────────────────────────────────────────── */
+#stats-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#stats-panel.hidden { display: none; }
+
+#stats-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 22, 35, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+#stats-content {
+  position: relative;
+  background: #ffffff;
+  color: #1a2332;
+  border-radius: 12px;
+  width: min(880px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 22px 26px 26px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+#stats-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+#stats-header h2 { font-size: 1.15rem; font-weight: 700; }
+.stats-summary { font-size: 0.82rem; color: #5a6878; margin-top: 4px; }
+
+#stats-close {
+  background: transparent;
+  border: 1px solid #d4dae3;
+  color: #5a6878;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.15s, color 0.15s;
+}
+#stats-close:hover { background: #f0f3f7; color: #1a2332; }
+
+.stats-hint {
+  font-size: 0.78rem;
+  color: #6a7888;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.chart-row { margin-top: 18px; }
+.chart-row h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #2a3a50;
+}
+.chart-wrap {
+  position: relative;
+  height: 240px;
+  width: 100%;
+}
+.chart-wrap--tall  { height: 340px; }
+.chart-wrap--small { height: 180px; }
+
+@media (max-width: 720px) {
+  #stats-content { padding: 16px 14px 18px; max-height: 95vh; }
+  .chart-wrap        { height: 200px; }
+  .chart-wrap--tall  { height: 280px; }
+  .chart-wrap--small { height: 160px; }
 }
