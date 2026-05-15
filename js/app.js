@@ -961,6 +961,15 @@ function filteredForScope(scope) {
 function renderAllSections() {
   if (!selectedScope) return;
   const allEntries = filteredForScope(selectedScope);
+  // Ordenar: nacional → estadual → municipal; depois por ano desc; depois alfabético
+  const nivelOrder = { nacional: 0, estadual: 1, municipal: 2 };
+  allEntries.sort((a, b) => {
+    const dn = (nivelOrder[a.nivel] ?? 9) - (nivelOrder[b.nivel] ?? 9);
+    if (dn !== 0) return dn;
+    const dy = (b.ano || 0) - (a.ano || 0);
+    if (dy !== 0) return dy;
+    return (a.entidade || '').localeCompare(b.entidade || '');
+  });
   const buckets = {
     declaracoes: allEntries.filter(e => ['CEDAMIA','MANUAL'].includes(e.fonte)),
     atribuicao:  allEntries.filter(e => e.fonte === 'WWA'),
