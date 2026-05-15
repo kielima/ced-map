@@ -34,6 +34,7 @@ const LANG = {
     'stat-label':           'jurisdições visíveis',
     'stat-countries-label': 'países',
     'btn-filters':          '☰ Filtros',
+    'empty-hint':           '— ajuste os filtros para ver dados',
     'loading':              'Carregando dados…',
     'info-declaracoes':     'Declarações',
     'info-atribuicao':      'Atribuição WWA',
@@ -88,6 +89,7 @@ const LANG = {
     'stat-label':           'visible jurisdictions',
     'stat-countries-label': 'countries',
     'btn-filters':          '☰ Filters',
+    'empty-hint':           '— adjust filters to see data',
     'loading':              'Loading data…',
     'info-declaracoes':     'Declarations',
     'info-atribuicao':      'WWA Attribution',
@@ -1165,6 +1167,8 @@ function updateStats() {
   const isos = new Set(filtered.map(e => e.iso_3).filter(Boolean));
   document.getElementById('stat-jurisdictions').textContent = filtered.length.toLocaleString('pt-BR');
   document.getElementById('stat-countries').textContent = isos.size;
+  // Marca para CSS quando não há resultados (oportunidade de UI)
+  document.getElementById('map-stats').classList.toggle('empty', filtered.length === 0);
 }
 
 function updateLayerCounts() {

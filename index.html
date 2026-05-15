@@ -7,11 +7,22 @@
   <title>CED Map — Declarações de Emergência Climática</title>
   <meta name="description" content="Mapa interativo de declarações de emergência climática, atribuição científica (WWA) e tentativas rejeitadas. Dados CEDAMIA + World Weather Attribution.">
 
+  <!-- Open Graph / Twitter — preview em redes sociais -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CED Map — Declarações de Emergência Climática">
+  <meta property="og:description" content="Mapa interativo global: 1.973 declarações de emergência climática, atribuição científica e tentativas rejeitadas.">
+  <meta property="og:url" content="https://kielima.github.io/ced-map/">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CED Map — Declarações de Emergência Climática">
+  <meta name="twitter:description" content="Mapa interativo global de declarações de emergência climática (CEDAMIA + WWA).">
+
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=9" rel="stylesheet">
+  <link href="style.css?v=10" rel="stylesheet">
 </head>
 <body>
 
@@ -129,6 +140,7 @@
     <div id="map-stats" aria-live="polite" aria-atomic="true">
       <span id="stat-jurisdictions">–</span> <span data-i18n="stat-label">jurisdições visíveis</span> ·
       <span id="stat-countries">–</span> <span data-i18n="stat-countries-label">países</span>
+      <span class="empty-hint" data-i18n="empty-hint">— ajuste os filtros para ver dados</span>
     </div>
 
     <!-- Botão para abrir sidebar quando recolhida -->
@@ -206,6 +218,6 @@
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script type="module" src="js/app.js?v=14"></script>
+<script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>
