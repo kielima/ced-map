@@ -129,13 +129,28 @@
       <h3 id="info-title">—</h3>
       <button id="info-close" aria-label="Fechar">✕</button>
     </div>
-    <div id="info-tabs">
-      <button class="tab-btn active" data-tab="declaracoes">Declarações</button>
-      <button class="tab-btn" data-tab="atribuicao">Atribuição WWA</button>
-      <button class="tab-btn" data-tab="quase">Quase-CED</button>
-    </div>
     <div id="info-content">
-      <ul id="info-list"></ul>
+      <details class="info-section" data-section="declaracoes" open>
+        <summary>
+          <span class="section-label">Declarações</span>
+          <span class="section-count" data-count-for="declaracoes">0</span>
+        </summary>
+        <ul class="section-list" data-list-for="declaracoes"></ul>
+      </details>
+      <details class="info-section" data-section="atribuicao">
+        <summary>
+          <span class="section-label">Atribuição WWA</span>
+          <span class="section-count" data-count-for="atribuicao">0</span>
+        </summary>
+        <ul class="section-list" data-list-for="atribuicao"></ul>
+      </details>
+      <details class="info-section" data-section="quase">
+        <summary>
+          <span class="section-label">Quase-CED</span>
+          <span class="section-count" data-count-for="quase">0</span>
+        </summary>
+        <ul class="section-list" data-list-for="quase"></ul>
+      </details>
     </div>
   </div>
 
@@ -148,6 +163,6 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-<script type="module" src="js/app.js?v=6"></script>
+<script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>
