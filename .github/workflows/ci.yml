@@ -25,6 +25,9 @@ jobs:
       - name: Validate JSON files and banco schema
         run: python build/validate_data.py
 
+      - name: Run pytest
+        run: python -m pytest build/tests/ -v
+
       - name: Validate JS syntax
         run: node --check js/app.js
 
