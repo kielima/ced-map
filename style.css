@@ -64,8 +64,7 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 
 #sidebar-toggle {
   position: absolute;
-  top: 50%; right: 12px;
-  transform: translateY(-50%);
+  top: 14px; right: 12px;
   background: var(--pill-bg);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -76,6 +75,24 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   transition: color 0.15s;
 }
 #sidebar-toggle:hover { color: var(--text-main); }
+
+.header-controls {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.header-ctrl-btn {
+  background: var(--pill-bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  transition: color 0.15s, background 0.15s;
+}
+.header-ctrl-btn:hover { color: var(--text-main); background: var(--pill-active); }
 
 /* ── Filtros ──────────────────────────────────────────────────────────────── */
 #filters {
@@ -603,3 +620,37 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   .chart-wrap--tall  { height: 280px; }
   .chart-wrap--small { height: 160px; }
 }
+
+/* ── Modo escuro — painéis brancos ──────────────────────────────────────────── */
+[data-theme="dark"] #info-panel {
+  background: #1a2332;
+  box-shadow: -2px -2px 16px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] #info-header    { border-color: #2a3a50; }
+[data-theme="dark"] #info-title     { color: #e8edf2; }
+[data-theme="dark"] #info-close     { color: #8a9ab0; }
+[data-theme="dark"] #info-close:hover { background: #263548; }
+
+[data-theme="dark"] .info-section { background: #1e2a3a; border-color: #2a3a50; }
+[data-theme="dark"] .info-section > summary {
+  background: #1a2332; color: #e8edf2;
+}
+[data-theme="dark"] .info-section > summary:hover  { background: #263548; }
+[data-theme="dark"] .info-section > summary:active { background: #2a3a50; }
+[data-theme="dark"] .info-section[open] > summary  { background: #1e3050; border-color: #2a4a70; }
+[data-theme="dark"] .info-section[open] > summary:hover  { background: #1a2a48; }
+[data-theme="dark"] .section-count {
+  background: #1a2332; color: #c8d8e8; border-color: #2a3a50;
+}
+[data-theme="dark"] .section-list li { border-color: #2a3a50; color: #c8d8e8; }
+[data-theme="dark"] .entry-entity    { color: #e8edf2; }
+[data-theme="dark"] .entry-meta      { color: #8a9ab0; }
+[data-theme="dark"] .no-data         { color: #8a9ab0; }
+
+[data-theme="dark"] #stats-content { background: #1a2332; color: #e8edf2; }
+[data-theme="dark"] #stats-header h2  { color: #e8edf2; }
+[data-theme="dark"] .stats-summary    { color: #8a9ab0; }
+[data-theme="dark"] #stats-close      { border-color: #2a3a50; color: #8a9ab0; }
+[data-theme="dark"] #stats-close:hover { background: #263548; color: #e8edf2; }
+[data-theme="dark"] .stats-hint       { color: #8a9ab0; border-color: #2a3a50; }
+[data-theme="dark"] .chart-row h3     { color: #c8d8e8; }

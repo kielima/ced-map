@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=5" rel="stylesheet">
+  <link href="style.css?v=6" rel="stylesheet">
 </head>
 <body>
 
@@ -22,7 +22,11 @@
 
     <header id="sidebar-header">
       <h1>🌍 CED Map</h1>
-      <p class="subtitle">Emergências Climáticas Globais</p>
+      <p class="subtitle" data-i18n="subtitle">Emergências Climáticas Globais</p>
+      <div class="header-controls">
+        <button id="dark-toggle" class="header-ctrl-btn" aria-label="Modo escuro">🌙</button>
+        <button id="lang-toggle" class="header-ctrl-btn" aria-label="Idioma">EN</button>
+      </div>
       <button id="sidebar-toggle" aria-label="Recolher painel" title="Recolher">‹</button>
     </header>
 
@@ -30,13 +34,13 @@
 
       <!-- Camadas de dados -->
       <section class="filter-group">
-        <h2>Camadas</h2>
+        <h2 data-i18n="sec-layers">Camadas</h2>
         <div class="layer-toggles">
           <label class="layer-item" data-color="vermelho">
             <input type="checkbox" name="fonte" value="ced-formal" checked>
             <span class="swatch"></span>
             <span class="layer-label">
-              Declaração formal (CED)
+              <span data-i18n="layer-ced">Declaração formal (CED)</span>
               <small id="count-ced-formal">–</small>
             </span>
           </label>
@@ -44,7 +48,7 @@
             <input type="checkbox" name="fonte" value="wwa" checked>
             <span class="swatch"></span>
             <span class="layer-label">
-              Atribuição científica (WWA)
+              <span data-i18n="layer-wwa">Atribuição científica (WWA)</span>
               <small id="count-wwa">–</small>
             </span>
           </label>
@@ -52,7 +56,7 @@
             <input type="checkbox" name="fonte" value="almost-ced" checked>
             <span class="swatch"></span>
             <span class="layer-label">
-              Tentativa rejeitada / quase-CED
+              <span data-i18n="layer-almost">Tentativa rejeitada / quase-CED</span>
               <small id="count-almost">–</small>
             </span>
           </label>
@@ -61,30 +65,30 @@
 
       <!-- Nível administrativo -->
       <section class="filter-group">
-        <h2>Nível</h2>
+        <h2 data-i18n="sec-nivel">Nível</h2>
         <div class="pill-group" id="filter-nivel">
-          <button class="pill active" data-value="nacional">Nacional</button>
-          <button class="pill active" data-value="estadual">Estadual</button>
-          <button class="pill active" data-value="municipal">Municipal</button>
+          <button class="pill active" data-value="nacional" data-i18n="pill-nacional">Nacional</button>
+          <button class="pill active" data-value="estadual" data-i18n="pill-estadual">Estadual</button>
+          <button class="pill active" data-value="municipal" data-i18n="pill-municipal">Municipal</button>
         </div>
       </section>
 
       <!-- Período -->
       <section class="filter-group">
-        <h2>Período</h2>
+        <h2 data-i18n="sec-periodo">Período</h2>
         <div class="range-row">
           <span id="ano-min-label">1990</span>
           <input type="range" id="ano-min" min="1990" max="2026" value="1990" step="1">
           <input type="range" id="ano-max" min="1990" max="2026" value="2026" step="1">
           <span id="ano-max-label">2026</span>
         </div>
-        <p class="range-hint">Arraste para filtrar por ano de declaração</p>
+        <p class="range-hint" data-i18n="range-hint">Arraste para filtrar por ano de declaração</p>
       </section>
 
       <!-- Busca por país -->
       <section class="filter-group">
-        <h2>Busca</h2>
-        <input type="search" id="pais-search" placeholder="País, jurisdição…" autocomplete="off">
+        <h2 data-i18n="sec-busca">Busca</h2>
+        <input type="search" id="pais-search" data-i18n-placeholder="search-placeholder" placeholder="País, jurisdição…" autocomplete="off">
         <ul id="search-results"></ul>
       </section>
 
@@ -93,23 +97,22 @@
     <!-- Rodapé com contagem e legenda de cores -->
     <footer id="sidebar-footer">
       <div class="legend">
-        <div class="legend-row"><span class="dot" data-color="vermelho"></span> Declaração nacional</div>
-        <div class="legend-row"><span class="dot" data-color="laranja"></span> Estadual / provincial</div>
-        <div class="legend-row"><span class="dot" data-color="amarelo"></span> Municipal / local</div>
-        <div class="legend-row"><span class="dot" data-color="azul"></span> Atribuição WWA</div>
-        <div class="legend-row"><span class="dot" data-color="roxo"></span> Quase-CED / rejeitada</div>
-        <div class="legend-row"><span class="dot" data-color="cinza"></span> Sem registro</div>
+        <div class="legend-row"><span class="dot" data-color="vermelho"></span> <span data-i18n="legend-nacional">Declaração nacional</span></div>
+        <div class="legend-row"><span class="dot" data-color="laranja"></span> <span data-i18n="legend-estadual">Estadual / provincial</span></div>
+        <div class="legend-row"><span class="dot" data-color="amarelo"></span> <span data-i18n="legend-municipal">Municipal / local</span></div>
+        <div class="legend-row"><span class="dot" data-color="azul"></span> <span data-i18n="legend-azul">Atribuição WWA</span></div>
+        <div class="legend-row"><span class="dot" data-color="roxo"></span> <span data-i18n="legend-roxo">Quase-CED / rejeitada</span></div>
+        <div class="legend-row"><span class="dot" data-color="cinza"></span> <span data-i18n="legend-cinza">Sem registro</span></div>
       </div>
       <div class="footer-actions">
-        <button id="stats-btn" type="button" title="Abrir painel de estatísticas">
-          📊 Estatísticas
-        </button>
-        <button id="export-csv" type="button" title="Baixar as entradas que passam pelos filtros ativos">
-          ↓ CSV (<span id="export-count">–</span>)
+        <button id="stats-btn" type="button" data-i18n="btn-stats">📊 Estatísticas</button>
+        <button id="export-csv" type="button">
+          <span data-i18n="btn-csv">↓ CSV</span> (<span id="export-count">–</span>)
         </button>
       </div>
       <p class="sources">
-        Fontes: <a href="https://cedamia.org" target="_blank" rel="noopener">CEDAMIA</a> ·
+        <span data-i18n="sources">Fontes:</span>
+        <a href="https://cedamia.org" target="_blank" rel="noopener">CEDAMIA</a> ·
         <a href="https://worldweatherattribution.org" target="_blank" rel="noopener">WWA</a> ·
         <a href="https://naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a>
       </p>
@@ -123,12 +126,12 @@
 
     <!-- Contador flutuante -->
     <div id="map-stats">
-      <span id="stat-jurisdictions">–</span> jurisdições visíveis ·
-      <span id="stat-countries">–</span> países
+      <span id="stat-jurisdictions">–</span> <span data-i18n="stat-label">jurisdições visíveis</span> ·
+      <span id="stat-countries">–</span> <span data-i18n="stat-countries-label">países</span>
     </div>
 
     <!-- Botão para abrir sidebar quando recolhida -->
-    <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden>☰ Filtros</button>
+    <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden data-i18n="btn-filters">☰ Filtros</button>
   </main>
 
   <!-- ── Painel de informação (clique no mapa) ────────────────────────── -->
@@ -140,21 +143,21 @@
     <div id="info-content">
       <details class="info-section" data-section="declaracoes" open>
         <summary>
-          <span class="section-label">Declarações</span>
+          <span class="section-label" data-i18n="info-declaracoes">Declarações</span>
           <span class="section-count" data-count-for="declaracoes">0</span>
         </summary>
         <ul class="section-list" data-list-for="declaracoes"></ul>
       </details>
       <details class="info-section" data-section="atribuicao">
         <summary>
-          <span class="section-label">Atribuição WWA</span>
+          <span class="section-label" data-i18n="info-atribuicao">Atribuição WWA</span>
           <span class="section-count" data-count-for="atribuicao">0</span>
         </summary>
         <ul class="section-list" data-list-for="atribuicao"></ul>
       </details>
       <details class="info-section" data-section="quase">
         <summary>
-          <span class="section-label">Quase-CED</span>
+          <span class="section-label" data-i18n="info-quase">Quase-CED</span>
           <span class="section-count" data-count-for="quase">0</span>
         </summary>
         <ul class="section-list" data-list-for="quase"></ul>
@@ -168,25 +171,25 @@
     <div id="stats-content">
       <header id="stats-header">
         <div>
-          <h2 id="stats-title">Estatísticas</h2>
+          <h2 id="stats-title" data-i18n="stats-title">Estatísticas</h2>
           <p id="stats-summary" class="stats-summary">– entradas · – países</p>
         </div>
         <button id="stats-close" aria-label="Fechar">✕</button>
       </header>
-      <p class="stats-hint">
+      <p class="stats-hint" data-i18n="stats-hint">
         Reflete os filtros ativos. Ajuste camadas, níveis ou faixa de anos no painel
         à esquerda para atualizar os gráficos.
       </p>
       <section class="chart-row">
-        <h3>Declarações por ano</h3>
+        <h3 data-i18n="chart-timeline-title">Declarações por ano</h3>
         <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
       </section>
       <section class="chart-row">
-        <h3>Top 10 países (por número de entradas)</h3>
+        <h3 data-i18n="chart-countries-title">Top 10 países (por número de entradas)</h3>
         <div class="chart-wrap chart-wrap--tall"><canvas id="chart-countries"></canvas></div>
       </section>
       <section class="chart-row">
-        <h3>Distribuição por nível</h3>
+        <h3 data-i18n="chart-nivel-title">Distribuição por nível</h3>
         <div class="chart-wrap chart-wrap--small"><canvas id="chart-nivel"></canvas></div>
       </section>
     </div>
@@ -197,11 +200,11 @@
 <!-- Loading overlay -->
 <div id="loading">
   <div class="spinner"></div>
-  <p>Carregando dados…</p>
+  <p data-i18n="loading">Carregando dados…</p>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script type="module" src="js/app.js?v=10"></script>
+<script type="module" src="js/app.js?v=11"></script>
 </body>
 </html>

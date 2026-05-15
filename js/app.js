@@ -3,6 +3,150 @@
  * Lógica principal: mapa MapLibre, filtros, popup de informação.
  */
 
+// ── Internacionalização (PT / EN) + Modo escuro ───────────────────────────────
+
+const LANG = {
+  pt: {
+    subtitle:               'Emergências Climáticas Globais',
+    'sec-layers':           'Camadas',
+    'layer-ced':            'Declaração formal (CED)',
+    'layer-wwa':            'Atribuição científica (WWA)',
+    'layer-almost':         'Tentativa rejeitada / quase-CED',
+    'sec-nivel':            'Nível',
+    'pill-nacional':        'Nacional',
+    'pill-estadual':        'Estadual',
+    'pill-municipal':       'Municipal',
+    'sec-periodo':          'Período',
+    'range-hint':           'Arraste para filtrar por ano de declaração',
+    'sec-busca':            'Busca',
+    'search-placeholder':   'País, jurisdição…',
+    'legend-nacional':      'Declaração nacional',
+    'legend-estadual':      'Estadual / provincial',
+    'legend-municipal':     'Municipal / local',
+    'legend-azul':          'Atribuição WWA',
+    'legend-roxo':          'Quase-CED / rejeitada',
+    'legend-cinza':         'Sem registro',
+    'btn-stats':            '📊 Estatísticas',
+    'btn-csv':              '↓ CSV',
+    'sources':              'Fontes:',
+    'stat-label':           'jurisdições visíveis',
+    'stat-countries-label': 'países',
+    'btn-filters':          '☰ Filtros',
+    'loading':              'Carregando dados…',
+    'info-declaracoes':     'Declarações',
+    'info-atribuicao':      'Atribuição WWA',
+    'info-quase':           'Quase-CED',
+    'nivel-nacional':       'Nacional',
+    'nivel-estadual':       'Estadual',
+    'nivel-municipal':      'Municipal',
+    'no-data':              'Sem dados nesta categoria para',
+    'stats-title':          'Estatísticas',
+    'stats-hint':           'Reflete os filtros ativos. Ajuste camadas, níveis ou faixa de anos no painel à esquerda para atualizar os gráficos.',
+    'chart-timeline-title': 'Declarações por ano',
+    'chart-countries-title':'Top 10 países (por número de entradas)',
+    'chart-nivel-title':    'Distribuição por nível',
+    'chart-ced-label':      'CED formal',
+    'chart-wwa-label':      'WWA',
+    'chart-almost-label':   'Quase-CED',
+    'chart-nivel-nacional': 'Nacional',
+    'chart-nivel-estadual': 'Estadual',
+    'chart-nivel-municipal':'Municipal',
+    'chart-year-axis':      'Ano',
+    'chart-count-axis':     'Entradas',
+    'tooltip-entries':      'entradas',
+    'dark-on':              '🌙',
+    'dark-off':             '☀️',
+    'lang-switch':          'EN',
+  },
+  en: {
+    subtitle:               'Global Climate Emergencies',
+    'sec-layers':           'Layers',
+    'layer-ced':            'Formal declaration (CED)',
+    'layer-wwa':            'Scientific attribution (WWA)',
+    'layer-almost':         'Rejected attempt / near-CED',
+    'sec-nivel':            'Level',
+    'pill-nacional':        'National',
+    'pill-estadual':        'State/Province',
+    'pill-municipal':       'Municipal',
+    'sec-periodo':          'Period',
+    'range-hint':           'Drag to filter by declaration year',
+    'sec-busca':            'Search',
+    'search-placeholder':   'Country, jurisdiction…',
+    'legend-nacional':      'National declaration',
+    'legend-estadual':      'State / provincial',
+    'legend-municipal':     'Municipal / local',
+    'legend-azul':          'WWA attribution',
+    'legend-roxo':          'Near-CED / rejected',
+    'legend-cinza':         'No record',
+    'btn-stats':            '📊 Statistics',
+    'btn-csv':              '↓ CSV',
+    'sources':              'Sources:',
+    'stat-label':           'visible jurisdictions',
+    'stat-countries-label': 'countries',
+    'btn-filters':          '☰ Filters',
+    'loading':              'Loading data…',
+    'info-declaracoes':     'Declarations',
+    'info-atribuicao':      'WWA Attribution',
+    'info-quase':           'Near-CED',
+    'nivel-nacional':       'National',
+    'nivel-estadual':       'State',
+    'nivel-municipal':      'Municipal',
+    'no-data':              'No data in this category for',
+    'stats-title':          'Statistics',
+    'stats-hint':           'Reflects active filters. Adjust layers, levels or year range in the left panel to update charts.',
+    'chart-timeline-title': 'Declarations per year',
+    'chart-countries-title':'Top 10 countries (by number of entries)',
+    'chart-nivel-title':    'Distribution by level',
+    'chart-ced-label':      'Formal CED',
+    'chart-wwa-label':      'WWA',
+    'chart-almost-label':   'Near-CED',
+    'chart-nivel-nacional': 'National',
+    'chart-nivel-estadual': 'State/Province',
+    'chart-nivel-municipal':'Municipal',
+    'chart-year-axis':      'Year',
+    'chart-count-axis':     'Entries',
+    'tooltip-entries':      'entries',
+    'dark-on':              '🌙',
+    'dark-off':             '☀️',
+    'lang-switch':          'PT',
+  },
+};
+
+let lang  = localStorage.getItem('ced-lang')  || 'pt';
+let theme = localStorage.getItem('ced-theme') ||
+  (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+/** Retorna a string traduzida para o idioma ativo. */
+function t(key) { return LANG[lang]?.[key] ?? LANG.pt[key] ?? key; }
+
+/** Aplica o idioma atual a todos os elementos [data-i18n] e [data-i18n-placeholder]. */
+function applyLang() {
+  document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  const langBtn = document.getElementById('lang-toggle');
+  if (langBtn) langBtn.textContent = t('lang-switch');
+  // Atualizar gráficos se abertos
+  if (statsCharts.timeline) updateCharts();
+}
+
+/** Aplica o tema atual ao documento e atualiza o botão e cores do Chart.js. */
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  const btn = document.getElementById('dark-toggle');
+  if (btn) btn.textContent = theme === 'dark' ? t('dark-off') : t('dark-on');
+  if (typeof Chart !== 'undefined') {
+    const isDark = theme === 'dark';
+    Chart.defaults.color       = isDark ? '#c8d8e8' : '#2a3a50';
+    Chart.defaults.borderColor = isDark ? '#2a3a50' : '#e5e7eb';
+    if (statsCharts.timeline) updateCharts();
+  }
+}
+
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const COLORS = {
@@ -40,6 +184,8 @@ const filters = {
 // ── Inicialização ─────────────────────────────────────────────────────────────
 
 async function init() {
+  applyTheme();
+  applyLang();
   try {
     banco = await loadBanco();
     const hashState = readStateFromHash();
@@ -767,7 +913,7 @@ function renderAllSections() {
 
     list.innerHTML = '';
     if (!entries.length) {
-      list.innerHTML = `<li class="no-data">Sem dados nesta categoria para ${label}.</li>`;
+      list.innerHTML = `<li class="no-data">${t('no-data')} ${label}.</li>`;
       continue;
     }
     for (const e of entries) {
@@ -794,7 +940,7 @@ function renderAllSections() {
 }
 
 function nivelLabel(nivel) {
-  return { nacional: 'Nacional', estadual: 'Estadual', municipal: 'Municipal' }[nivel] ?? nivel;
+  return t(`nivel-${nivel}`) || nivel;
 }
 
 function escHtml(str) {
@@ -900,6 +1046,20 @@ function setupFiltersUI() {
   document.getElementById('stats-btn').addEventListener('click', openStatsPanel);
   document.getElementById('stats-close').addEventListener('click', closeStatsPanel);
   document.getElementById('stats-backdrop').addEventListener('click', closeStatsPanel);
+
+  // Modo escuro
+  document.getElementById('dark-toggle').addEventListener('click', () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('ced-theme', theme);
+    applyTheme();
+  });
+
+  // Idioma
+  document.getElementById('lang-toggle').addEventListener('click', () => {
+    lang = lang === 'pt' ? 'en' : 'pt';
+    localStorage.setItem('ced-lang', lang);
+    applyLang();
+  });
 
   // Toggle sidebar
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
@@ -1027,7 +1187,8 @@ function onStatsKey(e) {
 function createCharts() {
   // Defaults globais do Chart.js — tipografia consistente com o app
   Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
-  Chart.defaults.color = '#2a3a50';
+  Chart.defaults.color = theme === 'dark' ? '#c8d8e8' : '#2a3a50';
+  Chart.defaults.borderColor = theme === 'dark' ? '#2a3a50' : '#e5e7eb';
 
   statsCharts.timeline = new Chart(document.getElementById('chart-timeline'), {
     type: 'bar',
@@ -1101,8 +1262,10 @@ function updateCharts() {
 
   // Resumo no header do modal
   const isos = new Set(entries.map(e => e.iso_3).filter(Boolean));
+  const entriesWord = lang === 'en' ? 'entries' : 'entradas';
+  const countriesWord = lang === 'en' ? 'countries' : 'países';
   document.getElementById('stats-summary').textContent =
-    `${entries.length.toLocaleString('pt-BR')} entradas · ${isos.size} países`;
+    `${entries.length.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR')} ${entriesWord} · ${isos.size} ${countriesWord}`;
 
   // ── Timeline empilhada por ano e fonte ─────────────────────────────────────
   const MIN_Y = 1990, MAX_Y = 2026;
@@ -1118,10 +1281,12 @@ function updateCharts() {
   const yearLabels = Object.keys(years);
   statsCharts.timeline.data.labels = yearLabels;
   statsCharts.timeline.data.datasets = [
-    { label: 'CED formal', data: yearLabels.map(y => years[y].ced),    backgroundColor: COLORS.vermelho },
-    { label: 'WWA',        data: yearLabels.map(y => years[y].wwa),    backgroundColor: COLORS.azul },
-    { label: 'Quase-CED',  data: yearLabels.map(y => years[y].almost), backgroundColor: COLORS.roxo },
+    { label: t('chart-ced-label'),    data: yearLabels.map(y => years[y].ced),    backgroundColor: COLORS.vermelho },
+    { label: t('chart-wwa-label'),    data: yearLabels.map(y => years[y].wwa),    backgroundColor: COLORS.azul },
+    { label: t('chart-almost-label'), data: yearLabels.map(y => years[y].almost), backgroundColor: COLORS.roxo },
   ];
+  statsCharts.timeline.options.scales.x.title.text = t('chart-year-axis');
+  statsCharts.timeline.options.scales.y.title.text = t('chart-count-axis');
   statsCharts.timeline.update();
 
   // ── Top 10 países ──────────────────────────────────────────────────────────
@@ -1140,15 +1305,18 @@ function updateCharts() {
     const dominant = COLOR_PRIORITY.find(col => c.cores.includes(col)) ?? 'cinza';
     return COLORS[dominant];
   });
+  statsCharts.countries.options.plugins.tooltip.callbacks.label =
+    ctx => `${ctx.parsed.x.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR')} ${t('tooltip-entries')}`;
   statsCharts.countries.update();
 
   // ── Distribuição por nível ────────────────────────────────────────────────
   let nNac = 0, nEst = 0, nMun = 0;
   for (const e of entries) {
-    if (e.nivel === 'nacional')      nNac++;
-    else if (e.nivel === 'estadual') nEst++;
+    if (e.nivel === 'nacional')       nNac++;
+    else if (e.nivel === 'estadual')  nEst++;
     else if (e.nivel === 'municipal') nMun++;
   }
+  statsCharts.nivel.data.labels = [t('chart-nivel-nacional'), t('chart-nivel-estadual'), t('chart-nivel-municipal')];
   statsCharts.nivel.data.datasets[0].data = [nNac, nEst, nMun];
   statsCharts.nivel.update();
 }

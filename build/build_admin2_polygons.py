@@ -38,9 +38,10 @@ BASE = Path(__file__).parent
 PWA_DATA = BASE.parent / "data"
 DOWNLOADS = BASE / "_downloads"
 
-# Top-5 países com maior densidade de jurisdições sub-nacionais no banco.
+# Top países com maior densidade de jurisdições sub-nacionais no banco.
 # (EU está fora porque não é um país com fronteiras GADM próprias.)
-TOP5 = ["KOR", "USA", "CAN", "JPN", "DEU"]
+# Ordem: KOR 229, USA 218, CAN 136, JPN 135, DEU 126, AUS 120, ITA 116, GBR ~90, ESP ~80, FRA ~70
+TOP5 = ["KOR", "USA", "CAN", "JPN", "DEU", "AUS", "ITA", "GBR", "ESP", "FRA"]
 
 GADM_BASE = "https://geodata.ucdavis.edu/gadm/gadm4.1/json"
 
