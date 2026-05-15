@@ -170,6 +170,8 @@ SCHEMA_COLS = [
     "justificativa", "observacoes", "verificado",
     # Phase 2: join com Natural Earth admin-1 (ne_id inteiro, null se não casou)
     "adm1_ne_id",
+    # Phase 3: coordenadas geocodificadas via Nominatim (build/geocode_banco.py)
+    "lat", "lon",
 ]
 
 # Mapeamento extra para nomes de países no xlsx almost-CEDs
@@ -779,6 +781,53 @@ def join_adm1(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ── Phase 3: join com cache de geocodificação ─────────────────────────────────
+
+def join_geocodes(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Lê build/geocodes.json (gerado por geocode_banco.py) e adiciona colunas
+    lat/lon ao banco. Entradas não geocodificadas ficam com lat=lon=None.
+    Apenas estaduais/municipais são alvo; nacionais ficam sem lat/lon.
+    """
+    import json
+    import re as _re
+
+    cache_path = BASE / "geocodes.json"
+    if not cache_path.exists():
+        print("\n[6] Geocodes: build/geocodes.json não encontrado, pulando.")
+        print("    Para geocodificar: python build/geocode_banco.py")
+        df["lat"] = None
+        df["lon"] = None
+        return df
+
+    print(f"\n[6] Join geocodes com {cache_path.name}...", end=" ", flush=True)
+    with open(cache_path, encoding="utf-8") as f:
+        cache = json.load(f)
+
+    def _key(iso3: str, regiao: str, entidade: str) -> str:
+        return "|".join([
+            (iso3 or "").strip().upper(),
+            _re.sub(r"\s+", " ", (regiao or "").strip()),
+            _re.sub(r"\s+", " ", (entidade or "").strip()),
+        ])
+
+    def _coord(row, axis: str):
+        if row["nivel"] == "nacional":
+            return None
+        hit = cache.get(_key(row.get("iso_3", ""), row.get("regiao", ""), row.get("entidade", "")))
+        if not hit or not hit.get("ok"):
+            return None
+        return hit.get(axis)
+
+    df["lat"] = df.apply(lambda r: _coord(r, "lat"), axis=1)
+    df["lon"] = df.apply(lambda r: _coord(r, "lon"), axis=1)
+
+    geo_total = df["lat"].notna().sum()
+    sub_total = (df["nivel"] != "nacional").sum()
+    print(f"{geo_total}/{sub_total} entradas com coordenadas")
+    return df
+
+
 # ── Build principal ───────────────────────────────────────────────────────────
 
 def build():
@@ -806,6 +855,9 @@ def build():
 
     # ── Phase 2: Join com Natural Earth admin-1 ───────────────────────────────
     df = join_adm1(df)
+
+    # ── Phase 3: Join com cache de geocodificação ─────────────────────────────
+    df = join_geocodes(df)
 
     # ── Sumário ───────────────────────────────────────────────────────────────
     print("\n" + "=" * 60)

@@ -145,6 +145,12 @@ async function onMapLoad() {  // async: aguarda loadAdmin1Layer()
   // Admin-1 (estados/províncias) — Phase 2 com Natural Earth 50m + join ne_id
   await loadAdmin1Layer();
 
+  // Pontos geocodificados (cidades/municípios) — Phase 3 com clustering
+  loadPointsLayer();
+
+  // Admin-2 (top-5 países) lazy: carrega só quando o usuário aproxima
+  map.on('zoom', maybeLoadAdmin2);
+
   // Interatividade
   map.on('click', 'countries-fill', onCountryClick);
   map.on('mousemove', 'countries-fill', onCountryHover);
@@ -221,6 +227,276 @@ async function loadAdmin1Layer() {
   } catch (err) {
     console.warn('Admin-1 não carregado:', err.message);
   }
+}
+
+/**
+ * Phase 3 — Admin-2 (município/condado) para top-5 países, lazy-loaded.
+ * O arquivo data/admin2_top5.geojson é gerado por build/build_admin2_polygons.py.
+ * Só baixa quando o usuário ultrapassa zoom 6 (evita pagar custo no carregamento inicial).
+ */
+let admin2State = 'idle'; // idle | loading | loaded | missing
+
+async function maybeLoadAdmin2() {
+  if (admin2State !== 'idle') return;
+  if (map.getZoom() < 6) return;
+  admin2State = 'loading';
+  await loadAdmin2Layer();
+}
+
+async function loadAdmin2Layer() {
+  try {
+    const r = await fetch('data/admin2_top5.geojson');
+    if (!r.ok) {
+      console.info('Admin-2 GeoJSON não disponível (execute build/build_admin2_polygons.py).');
+      admin2State = 'missing';
+      return;
+    }
+    const geo = await r.json();
+
+    map.addSource('admin2', { type: 'geojson', data: geo });
+
+    map.addLayer({
+      id: 'admin2-fill',
+      type: 'fill',
+      source: 'admin2',
+      minzoom: 5,
+      paint: {
+        'fill-color': buildAdmin2ColorExpr(),
+        'fill-opacity': [
+          'interpolate', ['linear'], ['zoom'],
+          5, 0,
+          7, 0.7,
+        ],
+      },
+    }, 'countries-highlight');
+
+    map.addLayer({
+      id: 'admin2-border',
+      type: 'line',
+      source: 'admin2',
+      minzoom: 6,
+      paint: {
+        'line-color': '#ffffff',
+        'line-width': 0.4,
+        'line-opacity': [
+          'interpolate', ['linear'], ['zoom'],
+          6, 0,
+          7, 0.5,
+        ],
+      },
+    }, 'countries-highlight');
+
+    map.on('click', 'admin2-fill', e => {
+      if (!e.features.length) return;
+      const props = e.features[0].properties;
+      const iso = (props.ISO_3 || '').toUpperCase();
+      if (!iso) return;
+      const entry = banco.find(b => b.iso_3 === iso);
+      selectCountry(iso, entry?.pais || iso);
+    });
+
+    admin2State = 'loaded';
+    console.info(`Admin-2 carregado: ${geo.features?.length ?? '?'} polígonos (top-5).`);
+  } catch (err) {
+    console.warn('Admin-2 não carregado:', err.message);
+    admin2State = 'missing';
+  }
+}
+
+/**
+ * Cores admin-2: casa o município pelo nome (props.NAME_2) com entidade do banco
+ * dentro do mesmo país (props.ISO_3). Match exato case-insensitive.
+ * Polígonos sem match ficam transparentes (mostra terreno por baixo).
+ */
+function buildAdmin2ColorExpr() {
+  // Indexar entradas filtradas por iso → nome normalizado → cor
+  const idx = {};
+  for (const e of getFilteredEntries()) {
+    if (e.nivel === 'nacional') continue;
+    const iso = e.iso_3;
+    if (!iso) continue;
+    const name = normName(e.entidade);
+    if (!name) continue;
+    if (!idx[iso]) idx[iso] = {};
+    const prev = idx[iso][name];
+    // Manter cor de maior prioridade entre múltiplas entradas
+    if (!prev || COLOR_PRIORITY.indexOf(e.cor_mapa) < COLOR_PRIORITY.indexOf(prev)) {
+      idx[iso][name] = e.cor_mapa;
+    }
+  }
+
+  // MapLibre case: usa concat(iso, '|', name) como chave
+  const expr = ['match',
+    ['concat', ['get', 'ISO_3'], '|',
+      ['downcase', ['coalesce', ['get', 'NAME_2'], '']]],
+  ];
+
+  let pairs = 0;
+  for (const [iso, byName] of Object.entries(idx)) {
+    for (const [name, color] of Object.entries(byName)) {
+      if (color && color !== 'cinza') {
+        expr.push(`${iso}|${name}`, COLORS[color]);
+        pairs++;
+      }
+    }
+  }
+  if (pairs === 0) return 'rgba(0,0,0,0)';
+  expr.push('rgba(0,0,0,0)');
+  return expr;
+}
+
+/** Normaliza nome de município para casar com NAME_2 do GADM (lowercase + trim). */
+function normName(s) {
+  if (!s) return '';
+  let n = String(s).toLowerCase().trim();
+  // Remover prefixos/sufixos comuns que não aparecem no GADM
+  n = n.replace(/^(city of|town of|district of|municipality of|borough of)\s+/i, '');
+  n = n.replace(/\s+(city council|town council|borough council|district council|county council|municipal council|council)\s*$/i, '');
+  return n.trim();
+}
+
+/**
+ * Phase 3 — Camada de pontos com clustering nativo MapLibre.
+ * Mostra um círculo por jurisdição geocodificada. Em zoom baixo agrupa
+ * em clusters. Em zoom alto mostra pontos individuais coloridos por cor_mapa.
+ */
+function loadPointsLayer() {
+  const fc = buildPointsGeoJSON();
+
+  map.addSource('points', {
+    type: 'geojson',
+    data: fc,
+    cluster: true,
+    clusterMaxZoom: 7,    // ao ultrapassar este zoom, separa em pontos individuais
+    clusterRadius: 45,    // raio de agregação em pixels
+  });
+
+  // Clusters: círculo dimensionado e colorido pelo número de pontos
+  map.addLayer({
+    id: 'clusters',
+    type: 'circle',
+    source: 'points',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': [
+        'step', ['get', 'point_count'],
+        '#F4D03F',  10,   // < 10 → amarelo
+        '#E67E22',  50,   // < 50 → laranja
+        '#C0392B',        // ≥ 50 → vermelho
+      ],
+      'circle-radius': [
+        'step', ['get', 'point_count'],
+        14, 10, 18, 50, 24,
+      ],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-opacity': 0.9,
+    },
+  });
+
+  // Contador no centro do cluster
+  map.addLayer({
+    id: 'cluster-count',
+    type: 'symbol',
+    source: 'points',
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': '{point_count_abbreviated}',
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 12,
+    },
+    paint: {
+      'text-color': '#ffffff',
+    },
+  });
+
+  // Pontos individuais (não-cluster)
+  map.addLayer({
+    id: 'unclustered-point',
+    type: 'circle',
+    source: 'points',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': [
+        'match', ['get', 'cor'],
+        'vermelho', COLORS.vermelho,
+        'laranja',  COLORS.laranja,
+        'amarelo',  COLORS.amarelo,
+        'azul',     COLORS.azul,
+        'roxo',     COLORS.roxo,
+        COLORS.cinza,
+      ],
+      'circle-radius': [
+        'interpolate', ['linear'], ['zoom'],
+        5, 4,
+        10, 7,
+      ],
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': '#ffffff',
+      'circle-opacity': 0.92,
+    },
+  });
+
+  // Clique em cluster → zoom in
+  map.on('click', 'clusters', e => {
+    const feat = e.features[0];
+    const clusterId = feat.properties.cluster_id;
+    map.getSource('points').getClusterExpansionZoom(clusterId).then(zoom => {
+      map.easeTo({ center: feat.geometry.coordinates, zoom });
+    });
+  });
+
+  // Clique em ponto individual → abre painel do país
+  map.on('click', 'unclustered-point', e => {
+    const props = e.features[0].properties;
+    const iso = (props.iso || '').toUpperCase();
+    if (!iso) return;
+    const banco_entry = banco.find(b => b.iso_3 === iso);
+    const name = banco_entry?.pais || iso;
+    selectCountry(iso, name);
+  });
+
+  // Cursor pointer ao passar por cluster/ponto
+  for (const id of ['clusters', 'unclustered-point']) {
+    map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+  }
+
+  // Tooltip ao passar sobre ponto individual
+  const popup = new maplibregl.Popup({
+    closeButton: false, closeOnClick: false, offset: 10,
+  });
+  map.on('mouseenter', 'unclustered-point', e => {
+    const p = e.features[0].properties;
+    popup
+      .setLngLat(e.features[0].geometry.coordinates)
+      .setHTML(`<strong>${escHtml(p.entidade)}</strong>${p.regiao ? `<br><small>${escHtml(p.regiao)}</small>` : ''}${p.ano ? `<br><small>${p.ano}</small>` : ''}`)
+      .addTo(map);
+  });
+  map.on('mouseleave', 'unclustered-point', () => popup.remove());
+
+  console.info(`Points carregados: ${fc.features.length} jurisdições geocodificadas.`);
+}
+
+/** Constrói FeatureCollection com um Point por entrada do banco que tem lat/lon. */
+function buildPointsGeoJSON() {
+  const features = [];
+  for (const e of getFilteredEntries()) {
+    if (typeof e.lat !== 'number' || typeof e.lon !== 'number') continue;
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+      properties: {
+        iso:      e.iso_3,
+        entidade: e.entidade,
+        regiao:   e.regiao || '',
+        ano:      e.ano || '',
+        cor:      e.cor_mapa,
+        fonte:    e.fonte,
+      },
+    });
+  }
+  return { type: 'FeatureCollection', features };
 }
 
 // ── Expressões de cor MapLibre ────────────────────────────────────────────────
@@ -591,6 +867,14 @@ function applyFilters() {
 
   if (map.getLayer('admin1-fill')) {
     map.setPaintProperty('admin1-fill', 'fill-color', buildAdmin1ColorExpr());
+  }
+
+  if (map.getSource('points')) {
+    map.getSource('points').setData(buildPointsGeoJSON());
+  }
+
+  if (map.getLayer('admin2-fill')) {
+    map.setPaintProperty('admin2-fill', 'fill-color', buildAdmin2ColorExpr());
   }
 
   updateStats();
