@@ -42,7 +42,9 @@ const filters = {
 async function init() {
   try {
     banco = await loadBanco();
-    setupMap();
+    const hashState = readStateFromHash();
+    if (hashState) applyHashStateToFilters(hashState);
+    setupMap(hashState);
   } catch (err) {
     console.error('Erro na inicialização:', err);
     document.getElementById('loading').innerHTML =
@@ -60,12 +62,13 @@ async function loadBanco() {
 
 // ── MapLibre ──────────────────────────────────────────────────────────────────
 
-function setupMap() {
+function setupMap(hashState) {
+  const view = hashState?.view;
   map = new maplibregl.Map({
     container: 'map',
     style: 'https://tiles.openfreemap.org/styles/liberty',
-    center: [10, 20],
-    zoom: 2,
+    center: view ? [view.lng, view.lat] : [10, 20],
+    zoom: view ? view.z : 2,
     minZoom: 1.5,
     maxZoom: 14,
     attributionControl: false,
@@ -74,11 +77,11 @@ function setupMap() {
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
-  map.on('load', onMapLoad);
+  map.on('load', () => onMapLoad(hashState));
   map.on('error', e => console.warn('MapLibre:', e.error?.message));
 }
 
-async function onMapLoad() {  // async: aguarda loadAdmin1Layer()
+async function onMapLoad(hashState) {  // async: aguarda loadAdmin1Layer()
   // Carregar GeoJSON de países (Natural Earth 110m)
   let countriesGeo;
   try {
@@ -161,7 +164,16 @@ async function onMapLoad() {  // async: aguarda loadAdmin1Layer()
 
   hideLoading();
   setupFiltersUI();
+  syncUIFromFilters();
   updateStats();
+  updateLayerCounts();
+
+  if (hashState?.scope) {
+    restoreScopeFromHash(hashState.scope);
+  }
+
+  map.on('moveend', writeStateToHash);
+  window.addEventListener('hashchange', onHashChange);
 }
 
 /** Retorna o id da primeira camada de símbolos (para inserir layers abaixo de labels) */
@@ -691,6 +703,7 @@ function selectScope(scope, displayName) {
     map.setFeatureState({ source: 'admin1', id: scope.ne_id }, { selected: true });
   }
   showInfoPanel(displayName);
+  writeStateToHash();
 }
 
 /** Limpa highlights do escopo atual. Idempotente. */
@@ -716,6 +729,7 @@ function hideInfoPanel() {
   document.getElementById('info-panel').classList.add('hidden');
   clearHighlights();
   selectedScope = null;
+  writeStateToHash();
 }
 
 /** Filtra entradas do banco pelo escopo selecionado (cascata iso → ne_id → admin2). */
@@ -939,6 +953,8 @@ function applyFilters() {
   if (selectedScope) {
     renderAllSections();
   }
+
+  writeStateToHash();
 }
 
 function updateStats() {
@@ -964,6 +980,163 @@ function hideLoading() {
   const el = document.getElementById('loading');
   el.classList.add('done');
   setTimeout(() => el.remove(), 500);
+}
+
+// ── Deep linking (estado dos filtros + escopo + view na URL) ──────────────────
+
+const DEFAULTS = {
+  layers: ['ced-formal', 'wwa', 'almost-ced'],
+  niveis: ['nacional', 'estadual', 'municipal'],
+  ano_min: 1990,
+  ano_max: 2026,
+  center: [10, 20],
+  zoom: 2,
+};
+
+/** Lê e desserializa o hash atual. Retorna null se vazio. */
+function readStateFromHash() {
+  const raw = location.hash.replace(/^#/, '');
+  if (!raw) return null;
+  const p = new URLSearchParams(raw);
+  const state = {};
+
+  if (p.has('layers')) state.layers = p.get('layers').split(',').filter(Boolean);
+  if (p.has('niveis')) state.niveis = p.get('niveis').split(',').filter(Boolean);
+
+  const ano = p.get('ano');
+  if (ano) {
+    const m = ano.match(/^(\d{4})-(\d{4})$/);
+    if (m) {
+      state.ano_min = parseInt(m[1], 10);
+      state.ano_max = parseInt(m[2], 10);
+    }
+  }
+
+  const iso = p.get('iso');
+  if (iso) {
+    state.scope = { iso: iso.toUpperCase() };
+    const ne = p.get('ne');
+    if (ne && !Number.isNaN(Number(ne))) state.scope.ne_id = Number(ne);
+    const m2 = p.get('m2');
+    if (m2) state.scope.admin2_name = m2;
+  }
+
+  const v = p.get('v');
+  if (v) {
+    const [lng, lat, z] = v.split(',').map(Number);
+    if ([lng, lat, z].every(Number.isFinite)) state.view = { lng, lat, z };
+  }
+
+  return state;
+}
+
+/** Aplica filtros desserializados ao estado global (sem tocar na UI). */
+function applyHashStateToFilters(state) {
+  if (state.layers) filters.layers = new Set(state.layers);
+  if (state.niveis) filters.niveis = new Set(state.niveis);
+  if (Number.isFinite(state.ano_min)) filters.ano_min = state.ano_min;
+  if (Number.isFinite(state.ano_max)) filters.ano_max = state.ano_max;
+}
+
+/** Reflete `filters` nos controles da UI (checkboxes, pills, sliders). */
+function syncUIFromFilters() {
+  document.querySelectorAll('input[name="fonte"]').forEach(cb => {
+    cb.checked = filters.layers.has(cb.value);
+  });
+  document.querySelectorAll('#filter-nivel .pill').forEach(btn => {
+    btn.classList.toggle('active', filters.niveis.has(btn.dataset.value));
+  });
+  const sliderMin = document.getElementById('ano-min');
+  const sliderMax = document.getElementById('ano-max');
+  const labelMin  = document.getElementById('ano-min-label');
+  const labelMax  = document.getElementById('ano-max-label');
+  if (sliderMin) sliderMin.value = filters.ano_min;
+  if (sliderMax) sliderMax.value = filters.ano_max;
+  if (labelMin)  labelMin.textContent  = filters.ano_min;
+  if (labelMax)  labelMax.textContent  = filters.ano_max;
+}
+
+/** Restaura escopo a partir do hash. Resolve nomes via banco. */
+function restoreScopeFromHash(scope) {
+  const entry = banco.find(b => b.iso_3 === scope.iso);
+  const paisName = entry?.pais || scope.iso;
+
+  if (scope.admin2_name) {
+    selectScope(
+      { iso: scope.iso, admin2_name: scope.admin2_name },
+      `${paisName} › ${scope.admin2_name}`,
+    );
+  } else if (scope.ne_id != null) {
+    const sub = banco.find(b => b.iso_3 === scope.iso && b.adm1_ne_id === scope.ne_id);
+    const display = sub?.regiao ? `${paisName} › ${sub.regiao}` : paisName;
+    selectScope({ iso: scope.iso, ne_id: scope.ne_id }, display);
+  } else {
+    selectScope({ iso: scope.iso }, paisName);
+  }
+}
+
+/** Serializa o estado atual e grava em location.hash (sem entrada de histórico). */
+function writeStateToHash() {
+  if (!map) return;
+  const p = new URLSearchParams();
+
+  const layers = [...filters.layers].sort();
+  if (layers.length !== DEFAULTS.layers.length ||
+      !DEFAULTS.layers.every(l => filters.layers.has(l))) {
+    p.set('layers', layers.join(','));
+  }
+
+  const niveis = [...filters.niveis].sort();
+  if (niveis.length !== DEFAULTS.niveis.length ||
+      !DEFAULTS.niveis.every(n => filters.niveis.has(n))) {
+    p.set('niveis', niveis.join(','));
+  }
+
+  if (filters.ano_min !== DEFAULTS.ano_min || filters.ano_max !== DEFAULTS.ano_max) {
+    p.set('ano', `${filters.ano_min}-${filters.ano_max}`);
+  }
+
+  if (selectedScope?.iso) {
+    p.set('iso', selectedScope.iso);
+    if (selectedScope.ne_id != null) p.set('ne', String(selectedScope.ne_id));
+    if (selectedScope.admin2_name)   p.set('m2', selectedScope.admin2_name);
+  }
+
+  const c = map.getCenter();
+  const z = map.getZoom();
+  const movedView = Math.abs(z - DEFAULTS.zoom) > 0.1
+                 || Math.abs(c.lng - DEFAULTS.center[0]) > 0.5
+                 || Math.abs(c.lat - DEFAULTS.center[1]) > 0.5;
+  if (movedView) {
+    p.set('v', `${c.lng.toFixed(3)},${c.lat.toFixed(3)},${z.toFixed(2)}`);
+  }
+
+  const next = p.toString() ? `#${p}` : location.pathname + location.search;
+  if (location.hash !== (p.toString() ? `#${p}` : '')) {
+    history.replaceState(null, '', next);
+  }
+}
+
+/** Reage a hashchange externo (paste de URL, back/forward com pushState futuro). */
+function onHashChange() {
+  const state = readStateFromHash() ?? {};
+  // Restaurar filtros (volta ao default se hash limpo)
+  filters.layers = new Set(state.layers ?? DEFAULTS.layers);
+  filters.niveis = new Set(state.niveis ?? DEFAULTS.niveis);
+  filters.ano_min = Number.isFinite(state.ano_min) ? state.ano_min : DEFAULTS.ano_min;
+  filters.ano_max = Number.isFinite(state.ano_max) ? state.ano_max : DEFAULTS.ano_max;
+  syncUIFromFilters();
+  applyFilters();
+
+  if (state.view) {
+    map.easeTo({ center: [state.view.lng, state.view.lat], zoom: state.view.z, duration: 600 });
+  }
+
+  if (state.scope) {
+    restoreScopeFromHash(state.scope);
+  } else if (selectedScope) {
+    hideInfoPanel();
+  }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
