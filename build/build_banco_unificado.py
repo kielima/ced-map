@@ -717,25 +717,124 @@ def join_adm1(df: pd.DataFrame) -> pd.DataFrame:
     with open(geo_path, encoding="utf-8") as f:
         gj = json.load(f)
 
-    # Indexar features por adm0_a3 → lista de {ne_id, name, iso_suffix}
+    # Aliases manuais de região → nome NE (resolve casos onde o banco usa
+    # uma supra-região que abrange vários admin-1, ou variantes ambíguas).
+    # Chave: (iso3, regiao_no_banco_normalizada). Valor: name_en no NE.
+    # Aplicado tanto a `regiao` quanto ao hint extraído de `entidade`.
+    REGION_ALIASES = {
+        # KOR: o banco usa supra-regiões (Sudogwon = Grande Seul) E sufixos
+        # tipo "Gyeongbuk" no fim da entidade. Mapeamos para o admin-1 NE.
+        ("KOR", "sudogwon"):    "Seoul",
+        ("KOR", "yeongnam"):    "North Gyeongsang",
+        ("KOR", "honam"):       "South Jeolla",
+        ("KOR", "chungcheong"): "South Chungcheong",
+        ("KOR", "hoseo"):       "South Chungcheong",
+        ("KOR", "gyeongbuk"):   "North Gyeongsang",
+        ("KOR", "gyeongnam"):   "South Gyeongsang",
+        ("KOR", "jeonbuk"):     "North Jeolla",
+        ("KOR", "jeonnam"):     "South Jeolla",
+        ("KOR", "jeolla"):      "North Jeolla",
+        ("KOR", "gangwon"):     "Gangwon",
+        ("KOR", "jeju"):        "Jeju",
+        ("KOR", "chungbuk"):    "North Chungcheong",
+        ("KOR", "chungnam"):    "South Chungcheong",
+        # DEU: variantes / abreviações usadas no CEDAMIA
+        ("DEU", "nth rhine-westphalia"): "North Rhine-Westphalia",
+        # ESP: variantes
+        ("ESP", "basque"):              "País Vasco",
+        ("ESP", "valencia"):            "Valenciana",
+        ("ESP", "valencian community"): "Valenciana",
+        # ITA: o banco usa regiões macro mas NE 10m só tem províncias.
+        # Mapeamos cada região macro para a província capital (mais reconhecível).
+        ("ITA", "lombardy"):       "Milano",
+        ("ITA", "piedmont"):       "Torino",
+        ("ITA", "veneto"):         "Venezia",
+        ("ITA", "tuscany"):        "Firenze",
+        ("ITA", "lazio"):          "Roma",
+        ("ITA", "campania"):       "Napoli",
+        ("ITA", "sicily"):         "Palermo",
+        ("ITA", "sardinia"):       "Cagliari",
+        ("ITA", "emilia-romagna"): "Bologna",
+        ("ITA", "calabria"):       "Catanzaro",
+        ("ITA", "puglia"):         "Bari",
+        ("ITA", "apulia"):         "Bari",
+        ("ITA", "abruzzo"):        "L'Aquila",
+        ("ITA", "marche"):         "Ancona",
+        ("ITA", "umbria"):         "Perugia",
+        ("ITA", "basilicata"):     "Potenza",
+        ("ITA", "molise"):         "Campobasso",
+        ("ITA", "liguria"):        "Genova",
+        ("ITA", "friuli-venezia giulia"): "Trieste",
+        ("ITA", "aosta valley"):   "Aosta",
+        # FRA: o banco usa regiões NUTS-2; NE só tem departamentos. Mapeamos
+        # para o departamento capital de cada região.
+        # Chaves precisam ser ASCII-only (lookup faz _unaccent na entrada).
+        ("FRA", "auvergne-rhone-alpes"):  "Rhône",
+        ("FRA", "occitanie"):             "Haute-Garonne",
+        ("FRA", "grand est"):             "Bas-Rhin",
+        ("FRA", "alpes-cote d'azur"):     "Bouches-du-Rhône",
+        ("FRA", "provence-alpes-cote d'azur"): "Bouches-du-Rhône",
+        ("FRA", "nouvelle-aquitaine"):    "Gironde",
+        ("FRA", "ile-de-france"):         "Paris",
+        ("FRA", "hauts-de-france"):       "Nord",
+        ("FRA", "bretagne"):              "Ille-et-Vilaine",
+        ("FRA", "normandie"):             "Seine-Maritime",
+        ("FRA", "pays de la loire"):      "Loire-Atlantique",
+        ("FRA", "centre-val de loire"):   "Loiret",
+        ("FRA", "bourgogne-franche-comte"): "Côte-d'Or",
+        ("FRA", "corse"):                 "Haute-Corse",
+    }
+
+    # Stopwords que não devem ser usadas como token de match
+    TOKEN_STOPWORDS = {
+        "city","town","council","municipal","metropolitan","district",
+        "county","borough","parish","village","community","authority",
+        "government","parliament","assembly","prefecture","province",
+        "regional","region","municipality","of","the","and","da","de",
+        "and","at","von","der","del","della","di","il","la",
+    }
+
+    # Indexar features por adm0_a3 → lista de {ne_id, name, name_en, iso_suffix}
     # iso_suffix: parte após o "-" em iso_3166_2 (ex.: "AU-NSW" → "NSW")
     ne_idx: dict[str, list[dict]] = {}
     for feat in gj["features"]:
-        props = feat.get("properties") or {}
-        iso   = (props.get("adm0_a3") or "").strip().upper()
-        ne_id = props.get("ne_id")
-        name  = (props.get("name") or "").strip()
-        iso2  = (props.get("iso_3166_2") or "")
+        props   = feat.get("properties") or {}
+        iso     = (props.get("adm0_a3") or "").strip().upper()
+        ne_id   = props.get("ne_id")
+        name    = (props.get("name")    or "").strip()
+        name_en = (props.get("name_en") or "").strip()
+        iso2    = (props.get("iso_3166_2") or "")
         # Extrair sufixo após "-" (ex.: "AU-NSW" → "NSW"; "AU-X02~" → "X02~")
         iso_suffix = iso2.split("-", 1)[1].upper() if "-" in iso2 else ""
-        if iso and ne_id and name:
+        if iso and ne_id and (name or name_en):
             ne_idx.setdefault(iso, []).append({
                 "ne_id":      int(ne_id),
                 "name":       name,
+                "name_en":    name_en,
                 "iso_suffix": iso_suffix,
             })
 
     SCORE_THRESHOLD = 75  # mínimo de similaridade (0-100) para aceitar o match
+
+    def _hint_from_entidade(entidade: str) -> str:
+        """Extrai pista regional do fim do nome da entidade.
+        Ex.: 'Andong-si (안동시), Gyeongbuk' → 'Gyeongbuk'
+             'Akashi City (明石市), Hyōgo' → 'Hyōgo'
+        """
+        if "," not in entidade:
+            return ""
+        tail = entidade.rsplit(",", 1)[1].strip()
+        # Limpar parentéticos
+        tail = re.sub(r"\([^)]*\)", "", tail).strip()
+        return tail
+
+    import unicodedata
+    def _unaccent(s: str) -> str:
+        """Remove diacríticos/macrons. 'Ōita' → 'Oita', 'Côte' → 'Cote'."""
+        if not s:
+            return ""
+        return "".join(c for c in unicodedata.normalize("NFKD", s)
+                       if not unicodedata.combining(c)).lower()
 
     def find_ne_id(row) -> int | None:
         if row["nivel"] == "nacional":
@@ -746,29 +845,74 @@ def join_adm1(df: pd.DataFrame) -> pd.DataFrame:
         if not candidates:
             return None
 
-        # 1. Tentativa de match exato contra iso_suffix (cobre abreviações tipo NSW, QLD)
-        for query_field in [row.get("regiao", ""), row.get("entidade", "")]:
-            q = str(query_field or "").strip().upper()
+        regiao   = str(row.get("regiao", "") or "").strip()
+        entidade = str(row.get("entidade", "") or "").strip()
+        hint     = _hint_from_entidade(entidade)
+
+        # 0. Alias manual: tenta mapear regiao OU hint normalizados
+        for src in (regiao, hint):
+            target = REGION_ALIASES.get((iso3, _unaccent(src)))
+            if target:
+                tl = _unaccent(target)
+                for c in candidates:
+                    if _unaccent(c["name"]) == tl or _unaccent(c["name_en"]) == tl:
+                        return c["ne_id"]
+
+        # 1. Match exato contra iso_suffix (cobre NSW, QLD, DE-BY, etc.)
+        for query_field in (regiao, entidade):
+            q = query_field.upper()
             if not q or len(q) < 2:
                 continue
             for c in candidates:
                 if c["iso_suffix"] and c["iso_suffix"] == q:
                     return c["ne_id"]
 
-        # 2. Fuzzy match contra nome completo
-        names = [c["name"] for c in candidates]
-        for query in [row.get("regiao", ""), row.get("entidade", "")]:
-            query = str(query or "").strip()
+        # 2. Match exato contra name/name_en, insensível a acentos.
+        #    Cobre Bayern↔Bavaria, Lombardia↔Lombardy, Ōita↔Oita.
+        for query in (regiao, hint, entidade):
+            q = _unaccent(query.strip())
+            if not q or len(q) < 3:
+                continue
+            for c in candidates:
+                if _unaccent(c["name"]) == q or _unaccent(c["name_en"]) == q:
+                    return c["ne_id"]
+
+        # 3. Token match: parte a entidade em tokens e procura algum que case
+        #    exatamente com um NE name. Cobre "Norfolk County" → "Norfolk",
+        #    "Dudley Metropolitan Council" → "Dudley".
+        tokens = set()
+        for query in (regiao, hint, entidade):
+            if not query:
+                continue
+            for tok in re.split(r"[\s,;/()]+", query):
+                tl = _unaccent(tok.strip())
+                if len(tl) >= 4 and tl not in TOKEN_STOPWORDS:
+                    tokens.add(tl)
+        for tok in tokens:
+            matches = [c for c in candidates
+                       if _unaccent(c["name"]) == tok or _unaccent(c["name_en"]) == tok]
+            if len(matches) == 1:
+                return matches[0]["ne_id"]
+
+        # 4. Fuzzy match contra name + name_en (último recurso)
+        names_pool, idx_back = [], []
+        for i, c in enumerate(candidates):
+            if c["name"]:
+                names_pool.append(c["name"]);    idx_back.append(i)
+            if c["name_en"] and c["name_en"] != c["name"]:
+                names_pool.append(c["name_en"]); idx_back.append(i)
+        for query in (regiao, hint, entidade):
+            query = query.strip()
             if not query or len(query) < 3:
                 continue
             result = process.extractOne(
-                query, names,
-                scorer=fuzz.token_sort_ratio,
-                score_cutoff=SCORE_THRESHOLD,
+                query, names_pool,
+                scorer=fuzz.WRatio,
+                score_cutoff=85,  # WRatio é mais generoso; cutoff maior compensa
             )
             if result:
-                matched_name, score, idx = result
-                return candidates[idx]["ne_id"]
+                _, _, j = result
+                return candidates[idx_back[j]]["ne_id"]
 
         return None
 
