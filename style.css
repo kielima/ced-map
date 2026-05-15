@@ -493,5 +493,9 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
     width: 100%;
     border-radius: 12px 12px 0 0;
   }
-  #map-stats { bottom: var(--info-h); }
+  /* Stats ancorado no canto inferior esquerdo (acima da attribution).
+     Some quando o info-panel está aberto: o usuário está focado no painel
+     e a informação geral não é relevante naquele momento. */
+  #map-stats { bottom: 8px; left: 8px; }
+  #map-wrap:has(#info-panel:not(.hidden)) #map-stats { display: none; }
 }
