@@ -830,6 +830,13 @@ function onAdmin1Click(feat) {
   const entry = banco.find(b => b.iso_3 === iso);
   const paisName  = entry?.pais || iso;
   const stateName = props.name_en || props.name || '';
+  // Verificar se há entradas neste escopo específico antes de narrow
+  const subEntries = banco.filter(b => b.iso_3 === iso && b.adm1_ne_id === ne_id);
+  if (subEntries.length === 0) {
+    // Estado/província clicada não tem entradas próprias — sobe o escopo para o país
+    selectScope({ iso }, paisName);
+    return;
+  }
   const displayName = stateName ? `${paisName} › ${stateName}` : paisName;
   selectScope({ iso, ne_id }, displayName);
 }
@@ -843,6 +850,14 @@ function onAdmin2Click(feat) {
   if (!admin2_name) return;
   const entry = banco.find(b => b.iso_3 === iso);
   const paisName = entry?.pais || iso;
+  // Verificar se algum município com esse nome existe no banco antes de narrow
+  const target = normName(admin2_name);
+  const subEntries = banco.filter(b => b.iso_3 === iso && normName(b.entidade) === target);
+  if (subEntries.length === 0) {
+    // Município sem entradas próprias — sobe o escopo para o país
+    selectScope({ iso }, paisName);
+    return;
+  }
   const displayName = `${paisName} › ${admin2_name}`;
   selectScope({ iso, admin2_name }, displayName);
 }
