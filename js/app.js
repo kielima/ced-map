@@ -29,7 +29,6 @@ const LAYER_MAP = {
 let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
 let selectedScope = null; // { iso, ne_id?, admin2_name?, displayName }
-let activeTab = 'declaracoes'; // tab ativa no info-panel
 
 const filters = {
   layers:   new Set(['ced-formal', 'wwa', 'almost-ced']), // camadas ativas
@@ -710,7 +709,7 @@ function clearHighlights() {
 function showInfoPanel(displayName) {
   document.getElementById('info-title').textContent = displayName;
   document.getElementById('info-panel').classList.remove('hidden');
-  renderInfoTab(activeTab);
+  renderAllSections();
 }
 
 function hideInfoPanel() {
@@ -732,47 +731,51 @@ function filteredForScope(scope) {
   return xs;
 }
 
-function renderInfoTab(tab) {
-  const list = document.getElementById('info-list');
-  list.innerHTML = '';
+/** Renderiza as 3 seções (Declarações / WWA / Quase-CED) ao mesmo tempo. */
+function renderAllSections() {
   if (!selectedScope) return;
-
   const allEntries = filteredForScope(selectedScope);
+  const buckets = {
+    declaracoes: allEntries.filter(e => ['CEDAMIA','MANUAL'].includes(e.fonte)),
+    atribuicao:  allEntries.filter(e => e.fonte === 'WWA'),
+    quase:       allEntries.filter(e => e.fonte === 'ALMOST-CED'),
+  };
+  const label = escHtml(selectedScope.displayName || selectedScope.iso || '');
 
-  let entries;
-  if (tab === 'declaracoes') {
-    entries = allEntries.filter(e => ['CEDAMIA', 'MANUAL'].includes(e.fonte));
-  } else if (tab === 'atribuicao') {
-    entries = allEntries.filter(e => e.fonte === 'WWA');
-  } else {
-    entries = allEntries.filter(e => e.fonte === 'ALMOST-CED');
-  }
+  for (const [key, entries] of Object.entries(buckets)) {
+    const list  = document.querySelector(`[data-list-for="${key}"]`);
+    const count = document.querySelector(`[data-count-for="${key}"]`);
+    if (!list || !count) continue;
 
-  if (!entries.length) {
-    const label = escHtml(selectedScope.displayName || selectedScope.iso || '');
-    list.innerHTML = `<li class="no-data">Sem dados nesta categoria para ${label}.</li>`;
-    return;
-  }
+    count.textContent = entries.length;
+    if (entries.length === 0) count.setAttribute('data-zero', '');
+    else                       count.removeAttribute('data-zero');
 
-  for (const e of entries) {
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <div class="entry-entity">
-        <span class="entry-badge badge-${e.cor_mapa}">${nivelLabel(e.nivel)}</span>
-        ${escHtml(e.entidade)}
-      </div>
-      <div class="entry-meta">
-        ${e.data_completa ? `📅 ${escHtml(e.data_completa)}` : ''}
-        ${e.regiao ? ` · 📍 ${escHtml(e.regiao)}` : ''}
-        ${e.url_documento
-          ? ` · <a href="${escHtml(e.url_documento)}" target="_blank" rel="noopener">Documento ↗</a>`
-          : ''}
-        ${e.fator_risco_wwa ? `<br>⚠️ ${escHtml(e.fator_risco_wwa)}` : ''}
-        ${e.justificativa ? `<br>ℹ️ ${escHtml(e.justificativa)}` : ''}
-        ${!e.verificado ? ' <span title="Não verificado manualmente">⚠️</span>' : ''}
-      </div>
-    `;
-    list.appendChild(li);
+    list.innerHTML = '';
+    if (!entries.length) {
+      list.innerHTML = `<li class="no-data">Sem dados nesta categoria para ${label}.</li>`;
+      continue;
+    }
+    for (const e of entries) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="entry-entity">
+          <span class="entry-badge badge-${e.cor_mapa}">${nivelLabel(e.nivel)}</span>
+          ${escHtml(e.entidade)}
+        </div>
+        <div class="entry-meta">
+          ${e.data_completa ? `📅 ${escHtml(e.data_completa)}` : ''}
+          ${e.regiao ? ` · 📍 ${escHtml(e.regiao)}` : ''}
+          ${e.url_documento
+            ? ` · <a href="${escHtml(e.url_documento)}" target="_blank" rel="noopener">Documento ↗</a>`
+            : ''}
+          ${e.fator_risco_wwa ? `<br>⚠️ ${escHtml(e.fator_risco_wwa)}` : ''}
+          ${e.justificativa ? `<br>ℹ️ ${escHtml(e.justificativa)}` : ''}
+          ${!e.verificado ? ' <span title="Não verificado manualmente">⚠️</span>' : ''}
+        </div>
+      `;
+      list.appendChild(li);
+    }
   }
 }
 
@@ -876,18 +879,6 @@ function setupFiltersUI() {
   // Botão fechar info-panel
   document.getElementById('info-close').addEventListener('click', hideInfoPanel);
 
-  // Tabs do info-panel
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeTab = btn.dataset.tab;
-      if (selectedScope) {
-        renderInfoTab(activeTab);
-      }
-    });
-  });
-
   // Toggle sidebar
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.add('collapsed');
@@ -946,7 +937,7 @@ function applyFilters() {
 
   // Atualizar info panel se aberto
   if (selectedScope) {
-    renderInfoTab(activeTab);
+    renderAllSections();
   }
 }
 
