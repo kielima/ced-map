@@ -75,13 +75,21 @@ python setup.py                          # converte CSV → banco.json
 ## Funcionalidades
 
 - 🗺️ **3 camadas hierárquicas**: países (admin-0), estados/províncias (admin-1), municípios (admin-2 top-10) com lazy-load por zoom
-- 📍 **1.251 jurisdições geocodificadas** exibidas como pontos com clustering nativo MapLibre
+- 📍 **1.257 jurisdições geocodificadas** exibidas como pontos com clustering nativo MapLibre
 - 🔍 **Filtros dinâmicos**: camada (CED/WWA/quase), nível (nacional/estadual/municipal), período (1990–2026), busca por nome
 - 📊 **Painel de estatísticas** com Chart.js (timeline, top países, distribuição por nível)
 - 🔗 **Deep linking por URL** — partilhe a vista actual copiando o link
 - 💾 **Export CSV** dos dados filtrados
+- 🚩 **Reportar inconsistências** — botão em cada entrada abre uma GitHub Issue pré-preenchida
 - 🌙 **Dark mode** + 🌐 **i18n** PT/EN
 - 📱 **PWA installable** com cache offline (service worker)
+
+## Curadoria
+
+Acesse o **modo curador** com `?admin=1` na URL (ex.: `https://kielima.github.io/ced-map/?admin=1`):
+- Filtra automaticamente para mostrar só as 1.942 entradas não-verificadas
+- Cada entrada tem botão **✓ Verificar** que abre uma GitHub Issue confirmando a verificação
+- Após análise, o mantenedor actualiza `verificado: true` no pipeline e no próximo deploy a entrada some do modo curador
 
 ## Estado atual (mai/2026)
 

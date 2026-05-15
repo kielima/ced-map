@@ -482,6 +482,52 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 .entry-meta { color: #6b7280; font-size: 0.75rem; }
 .entry-meta a { color: #4a90d9; text-decoration: none; }
 .entry-meta a:hover { text-decoration: underline; }
+.verified-badge {
+  display: inline-block;
+  background: #2d8659;
+  color: #fff;
+  font-size: 0.62rem;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.entry-actions {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  font-size: 0.7rem;
+}
+.entry-action {
+  color: #6b7280;
+  text-decoration: none;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: background 0.1s, border-color 0.1s;
+}
+.entry-action:hover { background: #f3f4f6; border-color: #e5e7eb; }
+.entry-action.verify { color: #2d8659; }
+.entry-action.verify:hover { background: #e8f5ee; border-color: #2d8659; }
+
+/* Banner do modo curador */
+#admin-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: #b45309;
+  color: #fff;
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+body:has(#admin-banner) #app { padding-top: 28px; }
 .entry-badge {
   display: inline-block;
   padding: 1px 7px;
@@ -680,6 +726,10 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 [data-theme="dark"] .section-list li { border-color: #2a3a50; color: #c8d8e8; }
 [data-theme="dark"] .entry-entity    { color: #e8edf2; }
 [data-theme="dark"] .entry-meta      { color: #8a9ab0; }
+[data-theme="dark"] .entry-action          { color: #8a9ab0; }
+[data-theme="dark"] .entry-action:hover    { background: #2a3a50; border-color: #3a4a60; }
+[data-theme="dark"] .entry-action.verify   { color: #6dc995; }
+[data-theme="dark"] .entry-action.verify:hover { background: #1f3329; border-color: #2d8659; }
 [data-theme="dark"] .no-data         { color: #8a9ab0; }
 
 [data-theme="dark"] #stats-content { background: #1a2332; color: #e8edf2; }
