@@ -20,11 +20,9 @@ const LANG = {
     'range-hint':           'Arraste para filtrar por ano de declaração',
     'sec-busca':            'Busca',
     'search-placeholder':   'País, jurisdição…',
-    'legend-nacional':      'Declaração nacional',
-    'legend-estadual':      'Estadual / provincial',
-    'legend-municipal':     'Municipal / local',
-    'legend-azul':          'Atribuição WWA',
-    'legend-roxo':          'Quase-CED / rejeitada',
+    'legend-ced':           'Declaração formal (CED)',
+    'legend-quase':         'Quase-CED / rejeitada',
+    'legend-wwa':           'Atribuição WWA',
     'legend-cinza':         'Sem registro',
     'btn-stats':            '📊 Estatísticas',
     'btn-copy':             '🔗 Copiar link',
@@ -81,11 +79,9 @@ const LANG = {
     'range-hint':           'Drag to filter by declaration year',
     'sec-busca':            'Search',
     'search-placeholder':   'Country, jurisdiction…',
-    'legend-nacional':      'National declaration',
-    'legend-estadual':      'State / provincial',
-    'legend-municipal':     'Municipal / local',
-    'legend-azul':          'WWA attribution',
-    'legend-roxo':          'Near-CED / rejected',
+    'legend-ced':           'Formal declaration (CED)',
+    'legend-quase':         'Near-CED / rejected',
+    'legend-wwa':           'WWA attribution',
     'legend-cinza':         'No record',
     'btn-stats':            '📊 Statistics',
     'btn-copy':             '🔗 Copy link',
@@ -167,17 +163,31 @@ function applyTheme() {
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
+// Paleta monocromática (vermelho) — cor por fonte da entrada, não pelo nível
 const COLORS = {
-  vermelho: '#C0392B',
-  laranja:  '#E67E22',
-  amarelo:  '#F4D03F',
-  azul:     '#5B8DB8',
-  roxo:     '#8E44AD',
+  ced:      '#8B0000',  // vermelho escuro: CEDAMIA + MANUAL
+  quase:    '#D9534F',  // vermelho médio: ALMOST-CED
+  wwa:      '#F2A6A6',  // vermelho claro: WWA
   cinza:    '#D9D9D9',
+  // Aliases retro-compat (campo cor_mapa do CSV) — mapeiam ao novo esquema
+  vermelho: '#8B0000',
+  laranja:  '#8B0000',
+  amarelo:  '#8B0000',
+  azul:     '#F2A6A6',
+  roxo:     '#D9534F',
 };
 
-/** Prioridade de exibição quando um país tem múltiplas categorias ativas */
-const COLOR_PRIORITY = ['vermelho', 'laranja', 'amarelo', 'azul', 'roxo'];
+/** Retorna a chave de cor (ced/quase/wwa/cinza) com base na fonte da entrada */
+function entryColor(e) {
+  if (!e) return 'cinza';
+  if (e.fonte === 'WWA' || e.status === 'atribuicao') return 'wwa';
+  if (e.fonte === 'ALMOST-CED' || e.status === 'quase') return 'quase';
+  if (e.fonte === 'CEDAMIA' || e.fonte === 'MANUAL') return 'ced';
+  return 'cinza';
+}
+
+/** Prioridade visual quando múltiplas entradas se sobrepõem: CED > quase > WWA */
+const COLOR_PRIORITY = ['ced', 'quase', 'wwa'];
 
 /** Mapeamento de layer-toggle → fontes e statuses correspondentes */
 const LAYER_MAP = {
@@ -501,45 +511,12 @@ async function loadAdmin2Layer() {
 }
 
 /**
- * Cores admin-2: casa o município pelo nome (props.NAME_2) com entidade do banco
- * dentro do mesmo país (props.ISO_3). Match exato case-insensitive.
- * Polígonos sem match ficam transparentes (mostra terreno por baixo).
+ * Polígonos admin-2 não são tingidos no esquema monocromático:
+ * municípios aparecem apenas como pontos coloridos.
+ * A camada continua existindo para click/scope, mas sempre transparente.
  */
 function buildAdmin2ColorExpr() {
-  // Indexar entradas filtradas por iso → nome normalizado → cor
-  const idx = {};
-  for (const e of getFilteredEntries()) {
-    if (e.nivel === 'nacional') continue;
-    const iso = e.iso_3;
-    if (!iso) continue;
-    const name = normName(e.entidade);
-    if (!name) continue;
-    if (!idx[iso]) idx[iso] = {};
-    const prev = idx[iso][name];
-    // Manter cor de maior prioridade entre múltiplas entradas
-    if (!prev || COLOR_PRIORITY.indexOf(e.cor_mapa) < COLOR_PRIORITY.indexOf(prev)) {
-      idx[iso][name] = e.cor_mapa;
-    }
-  }
-
-  // MapLibre case: usa concat(iso, '|', name) como chave
-  const expr = ['match',
-    ['concat', ['get', 'ISO_3'], '|',
-      ['downcase', ['coalesce', ['get', 'NAME_2'], '']]],
-  ];
-
-  let pairs = 0;
-  for (const [iso, byName] of Object.entries(idx)) {
-    for (const [name, color] of Object.entries(byName)) {
-      if (color && color !== 'cinza') {
-        expr.push(`${iso}|${name}`, COLORS[color]);
-        pairs++;
-      }
-    }
-  }
-  if (pairs === 0) return 'rgba(0,0,0,0)';
-  expr.push('rgba(0,0,0,0)');
-  return expr;
+  return 'rgba(0,0,0,0)';
 }
 
 /** Normaliza nome de município para casar com NAME_2 do GADM (lowercase + trim). */
@@ -577,9 +554,9 @@ function loadPointsLayer() {
     paint: {
       'circle-color': [
         'step', ['get', 'point_count'],
-        '#F4D03F',  10,   // < 10 → amarelo
-        '#E67E22',  50,   // < 50 → laranja
-        '#C0392B',        // ≥ 50 → vermelho
+        COLORS.wwa,   10,  // < 10  → vermelho claro
+        COLORS.quase, 50,  // < 50  → vermelho médio
+        COLORS.ced,        // ≥ 50  → vermelho escuro
       ],
       'circle-radius': [
         'step', ['get', 'point_count'],
@@ -615,12 +592,10 @@ function loadPointsLayer() {
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': [
-        'match', ['get', 'cor'],
-        'vermelho', COLORS.vermelho,
-        'laranja',  COLORS.laranja,
-        'amarelo',  COLORS.amarelo,
-        'azul',     COLORS.azul,
-        'roxo',     COLORS.roxo,
+        'match', ['get', 'colorKey'],
+        'ced',   COLORS.ced,
+        'quase', COLORS.quase,
+        'wwa',   COLORS.wwa,
         COLORS.cinza,
       ],
       'circle-radius': [
@@ -680,7 +655,7 @@ function buildPointsGeoJSON() {
         entidade:   e.entidade,
         regiao:     e.regiao || '',
         ano:        e.ano || '',
-        cor:        e.cor_mapa,
+        colorKey:   entryColor(e),
         fonte:      e.fonte,
         adm1_ne_id: e.adm1_ne_id ?? null,
       },
@@ -697,21 +672,23 @@ function buildPointsGeoJSON() {
  */
 function buildCountryColorExpr() {
   const expr = ['match', ['get', 'ADM0_A3']];
-  const added = new Set();
 
-  // Indexar banco por iso_3
-  const byIso = indexByIso();
-
+  // País só fica pintado se tiver pelo menos uma entrada nacional.
+  // Estados/municípios não tingem o país-mãe.
+  const byIso = {};
+  for (const e of getFilteredEntries()) {
+    if (e.nivel !== 'nacional') continue;
+    const iso = e.iso_3;
+    if (!iso) continue;
+    if (!byIso[iso]) byIso[iso] = [];
+    byIso[iso].push(e);
+  }
   for (const [iso, entries] of Object.entries(byIso)) {
     const color = topColor(entries);
-    if (color && color !== 'cinza' && !added.has(iso)) {
-      expr.push(iso, COLORS[color]);
-      added.add(iso);
-    }
+    if (color) expr.push(iso, COLORS[color]);
   }
-  // match precisa de pelo menos um par input→output antes do default
   if (expr.length < 4) return COLORS.cinza;
-  expr.push(COLORS.cinza); // default
+  expr.push(COLORS.cinza);
   return expr;
 }
 
@@ -723,28 +700,23 @@ function buildCountryColorExpr() {
 function buildAdmin1ColorExpr() {
   const expr = ['match', ['id']];
 
-  const filtered = getFilteredEntries();
-
-  // Agrupar entradas sub-nacionais por adm1_ne_id
+  // Estado só fica pintado se tiver declaração no NÍVEL estadual.
+  // Municípios dentro do estado não tingem o estado.
   const byNeId = {};
-  for (const e of filtered) {
-    if (!e.adm1_ne_id) continue;  // nulos e nacionais ficam de fora
-    const id = e.adm1_ne_id;      // já é número (parse_int no setup.py)
-    if (!byNeId[id]) byNeId[id] = [];
-    byNeId[id].push(e);
+  for (const e of getFilteredEntries()) {
+    if (e.nivel !== 'estadual') continue;
+    if (!e.adm1_ne_id) continue;
+    if (!byNeId[e.adm1_ne_id]) byNeId[e.adm1_ne_id] = [];
+    byNeId[e.adm1_ne_id].push(e);
   }
 
   for (const [idStr, entries] of Object.entries(byNeId)) {
-    const neId = Number(idStr);
     const color = topColor(entries);
-    if (color && color !== 'cinza') {
-      expr.push(neId, COLORS[color]);
-    }
+    if (color) expr.push(Number(idStr), COLORS[color]);
   }
 
-  // match exige ao menos um par input→output antes do default
-  if (expr.length < 4) return 'rgba(0,0,0,0)';  // totalmente transparente se vazio
-  expr.push('rgba(0,0,0,0)');  // default transparente (mostra apenas estados com dados)
+  if (expr.length < 4) return 'rgba(0,0,0,0)';
+  expr.push('rgba(0,0,0,0)');
   return expr;
 }
 
@@ -788,10 +760,10 @@ function getFilteredEntries() {
   });
 }
 
-/** Retorna a cor de maior prioridade entre as entradas de um país */
+/** Retorna a chave de cor de maior prioridade (ced > quase > wwa) entre entradas */
 function topColor(entries) {
-  const colors = new Set(entries.map(e => e.cor_mapa));
-  return COLOR_PRIORITY.find(c => colors.has(c)) ?? 'cinza';
+  const colors = new Set(entries.map(entryColor));
+  return COLOR_PRIORITY.find(c => colors.has(c)) ?? null;
 }
 
 // ── Eventos do mapa ───────────────────────────────────────────────────────────
@@ -990,7 +962,7 @@ function renderAllSections() {
       const li = document.createElement('li');
       li.innerHTML = `
         <div class="entry-entity">
-          <span class="entry-badge badge-${e.cor_mapa}">${nivelLabel(e.nivel)}</span>
+          <span class="entry-badge badge-${entryColor(e)}">${nivelLabel(e.nivel)}</span>
           ${escHtml(e.entidade)}
           ${e.verificado ? ` <span class="verified-badge" title="${escHtml(t('verified-tooltip'))}">✓</span>` : ''}
         </div>
@@ -1410,7 +1382,7 @@ function createCharts() {
       labels: ['Nacional', 'Estadual', 'Municipal'],
       datasets: [{
         data: [0, 0, 0],
-        backgroundColor: [COLORS.vermelho, COLORS.laranja, COLORS.amarelo],
+        backgroundColor: [COLORS.ced, COLORS.quase, COLORS.wwa],
         borderWidth: 2,
         borderColor: '#ffffff',
       }],
@@ -1451,9 +1423,9 @@ function updateCharts() {
   const yearLabels = Object.keys(years);
   statsCharts.timeline.data.labels = yearLabels;
   statsCharts.timeline.data.datasets = [
-    { label: t('chart-ced-label'),    data: yearLabels.map(y => years[y].ced),    backgroundColor: COLORS.vermelho },
-    { label: t('chart-wwa-label'),    data: yearLabels.map(y => years[y].wwa),    backgroundColor: COLORS.azul },
-    { label: t('chart-almost-label'), data: yearLabels.map(y => years[y].almost), backgroundColor: COLORS.roxo },
+    { label: t('chart-ced-label'),    data: yearLabels.map(y => years[y].ced),    backgroundColor: COLORS.ced },
+    { label: t('chart-almost-label'), data: yearLabels.map(y => years[y].almost), backgroundColor: COLORS.quase },
+    { label: t('chart-wwa-label'),    data: yearLabels.map(y => years[y].wwa),    backgroundColor: COLORS.wwa },
   ];
   statsCharts.timeline.options.scales.x.title.text = t('chart-year-axis');
   statsCharts.timeline.options.scales.y.title.text = t('chart-count-axis');
@@ -1466,7 +1438,7 @@ function updateCharts() {
     const k = e.iso_3;
     if (!byCountry[k]) byCountry[k] = { name: e.pais || k, count: 0, cores: [] };
     byCountry[k].count++;
-    byCountry[k].cores.push(e.cor_mapa);
+    byCountry[k].cores.push(entryColor(e));
   }
   const top = Object.values(byCountry).sort((a, b) => b.count - a.count).slice(0, 10);
   statsCharts.countries.data.labels = top.map(c => c.name);

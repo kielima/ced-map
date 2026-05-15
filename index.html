@@ -22,7 +22,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=12" rel="stylesheet">
+  <link href="style.css?v=13" rel="stylesheet">
 </head>
 <body>
 
@@ -108,11 +108,9 @@
     <!-- Rodapé com contagem e legenda de cores -->
     <footer id="sidebar-footer">
       <div class="legend">
-        <div class="legend-row"><span class="dot" data-color="vermelho"></span> <span data-i18n="legend-nacional">Declaração nacional</span></div>
-        <div class="legend-row"><span class="dot" data-color="laranja"></span> <span data-i18n="legend-estadual">Estadual / provincial</span></div>
-        <div class="legend-row"><span class="dot" data-color="amarelo"></span> <span data-i18n="legend-municipal">Municipal / local</span></div>
-        <div class="legend-row"><span class="dot" data-color="azul"></span> <span data-i18n="legend-azul">Atribuição WWA</span></div>
-        <div class="legend-row"><span class="dot" data-color="roxo"></span> <span data-i18n="legend-roxo">Quase-CED / rejeitada</span></div>
+        <div class="legend-row"><span class="dot" data-color="ced"></span> <span data-i18n="legend-ced">Declaração formal (CED)</span></div>
+        <div class="legend-row"><span class="dot" data-color="quase"></span> <span data-i18n="legend-quase">Quase-CED / rejeitada</span></div>
+        <div class="legend-row"><span class="dot" data-color="wwa"></span> <span data-i18n="legend-wwa">Atribuição WWA</span></div>
         <div class="legend-row"><span class="dot" data-color="cinza"></span> <span data-i18n="legend-cinza">Sem registro</span></div>
       </div>
       <div class="footer-actions">
@@ -218,6 +216,6 @@
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script type="module" src="js/app.js?v=19"></script>
+<script type="module" src="js/app.js?v=20"></script>
 </body>
 </html>

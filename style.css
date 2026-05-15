@@ -14,13 +14,17 @@
   --pill-active:   #2a4a70;
   --pill-bg:       #1e2e42;
 
-  /* Cores do mapa */
-  --c-vermelho:    #C0392B;
-  --c-laranja:     #E67E22;
-  --c-amarelo:     #F4D03F;
-  --c-azul:        #5B8DB8;
-  --c-roxo:        #8E44AD;
+  /* Cores do mapa (paleta monocromática vermelha — por fonte) */
+  --c-ced:         #8B0000;  /* vermelho escuro: CEDAMIA + MANUAL */
+  --c-quase:       #D9534F;  /* vermelho médio:  ALMOST-CED */
+  --c-wwa:         #F2A6A6;  /* vermelho claro:  WWA */
   --c-cinza:       #D9D9D9;
+  /* Aliases retro-compat (algumas classes badge ainda usam estes) */
+  --c-vermelho:    #8B0000;
+  --c-laranja:     #8B0000;
+  --c-amarelo:     #8B0000;
+  --c-azul:        #F2A6A6;
+  --c-roxo:        #D9534F;
 }
 
 html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
@@ -141,9 +145,12 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   transition: opacity 0.15s;
 }
 .layer-item:has(input:checked) .swatch { opacity: 1; }
-.layer-item[data-color="vermelho"] .swatch { background: var(--c-vermelho); }
-.layer-item[data-color="azul"]    .swatch { background: var(--c-azul); }
-.layer-item[data-color="roxo"]    .swatch { background: var(--c-roxo); }
+.layer-item[data-color="vermelho"] .swatch,
+.layer-item[data-color="ced"]     .swatch { background: var(--c-ced); }
+.layer-item[data-color="azul"]    .swatch,
+.layer-item[data-color="wwa"]     .swatch { background: var(--c-wwa); }
+.layer-item[data-color="roxo"]    .swatch,
+.layer-item[data-color="quase"]   .swatch { background: var(--c-quase); }
 
 .layer-label {
   display: flex;
@@ -257,11 +264,9 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dot[data-color="vermelho"] { background: var(--c-vermelho); }
-.dot[data-color="laranja"]  { background: var(--c-laranja); }
-.dot[data-color="amarelo"]  { background: var(--c-amarelo); }
-.dot[data-color="azul"]     { background: var(--c-azul); }
-.dot[data-color="roxo"]     { background: var(--c-roxo); }
+.dot[data-color="ced"]      { background: var(--c-ced); }
+.dot[data-color="quase"]    { background: var(--c-quase); }
+.dot[data-color="wwa"]      { background: var(--c-wwa); }
 .dot[data-color="cinza"]    { background: var(--c-cinza); }
 
 .footer-actions {
@@ -537,11 +542,13 @@ body:has(#admin-banner) #app { padding-top: 28px; }
   margin-right: 5px;
   vertical-align: middle;
 }
-.badge-vermelho { background: #fde8e8; color: #b91c1c; }
-.badge-laranja  { background: #fef3c7; color: #b45309; }
-.badge-amarelo  { background: #fffbeb; color: #92400e; }
-.badge-azul     { background: #dbeafe; color: #1d4ed8; }
-.badge-roxo     { background: #f3e8ff; color: #7c3aed; }
+.badge-ced      { background: #fde8e8; color: #8B0000; }
+.badge-quase    { background: #fdebea; color: #a13a36; }
+.badge-wwa      { background: #fcefef; color: #b86060; }
+/* Aliases retro-compat */
+.badge-vermelho, .badge-laranja, .badge-amarelo { background: #fde8e8; color: #8B0000; }
+.badge-azul                                      { background: #fcefef; color: #b86060; }
+.badge-roxo                                      { background: #fdebea; color: #a13a36; }
 
 .no-data {
   padding: 20px 16px;
