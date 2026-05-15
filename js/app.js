@@ -1261,8 +1261,17 @@ function initBottomSheetDrag() {
     }
   }
 
+  const header = document.getElementById('info-header');
+
+  function canDrag(e) {
+    return !e.target.closest('#info-close');
+  }
+
   handle.addEventListener('touchstart', e => {
     onStart(e.touches[0].clientY);
+  }, { passive: true });
+  header.addEventListener('touchstart', e => {
+    if (canDrag(e)) onStart(e.touches[0].clientY);
   }, { passive: true });
   window.addEventListener('touchmove', e => {
     if (dragging) { e.preventDefault(); onMove(e.touches[0].clientY); }
@@ -1272,6 +1281,9 @@ function initBottomSheetDrag() {
   });
 
   handle.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientY); });
+  header.addEventListener('mousedown', e => {
+    if (canDrag(e)) { e.preventDefault(); onStart(e.clientY); }
+  });
   window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
   window.addEventListener('mouseup',   e => { if (dragging) onEnd(e.clientY); });
 
