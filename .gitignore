@@ -1,0 +1,19 @@
+# Dados geográficos pesados — baixar via setup.py
+data/ne_10m_admin1.geojson
+data/ne_10m_admin1_slim.geojson
+
+# Configuração local de dev
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

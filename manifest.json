@@ -1,0 +1,20 @@
+{
+  "name": "CED Map — Emergências Climáticas Globais",
+  "short_name": "CED Map",
+  "description": "Mapa interativo de declarações de emergência climática, atribuição científica (WWA) e tentativas rejeitadas no mundo.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1a2332",
+  "theme_color": "#1a2332",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "science"],
+  "screenshots": []
+}

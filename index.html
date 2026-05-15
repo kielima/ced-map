@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a2332">
+  <title>CED Map — Declarações de Emergência Climática</title>
+  <meta name="description" content="Mapa interativo de declarações de emergência climática, atribuição científica (WWA) e tentativas rejeitadas. Dados CEDAMIA + World Weather Attribution.">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+
+  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Painel de filtros (lateral esquerda) ─────────────────────────── -->
+  <aside id="sidebar">
+
+    <header id="sidebar-header">
+      <h1>🌍 CED Map</h1>
+      <p class="subtitle">Emergências Climáticas Globais</p>
+      <button id="sidebar-toggle" aria-label="Recolher painel" title="Recolher">‹</button>
+    </header>
+
+    <div id="filters">
+
+      <!-- Camadas de dados -->
+      <section class="filter-group">
+        <h2>Camadas</h2>
+        <div class="layer-toggles">
+          <label class="layer-item" data-color="vermelho">
+            <input type="checkbox" name="fonte" value="ced-formal" checked>
+            <span class="swatch"></span>
+            <span class="layer-label">
+              Declaração formal (CED)
+              <small id="count-ced-formal">–</small>
+            </span>
+          </label>
+          <label class="layer-item" data-color="azul">
+            <input type="checkbox" name="fonte" value="wwa" checked>
+            <span class="swatch"></span>
+            <span class="layer-label">
+              Atribuição científica (WWA)
+              <small id="count-wwa">–</small>
+            </span>
+          </label>
+          <label class="layer-item" data-color="roxo">
+            <input type="checkbox" name="fonte" value="almost-ced" checked>
+            <span class="swatch"></span>
+            <span class="layer-label">
+              Tentativa rejeitada / quase-CED
+              <small id="count-almost">–</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Nível administrativo -->
+      <section class="filter-group">
+        <h2>Nível</h2>
+        <div class="pill-group" id="filter-nivel">
+          <button class="pill active" data-value="nacional">Nacional</button>
+          <button class="pill active" data-value="estadual">Estadual</button>
+          <button class="pill active" data-value="municipal">Municipal</button>
+        </div>
+      </section>
+
+      <!-- Período -->
+      <section class="filter-group">
+        <h2>Período</h2>
+        <div class="range-row">
+          <span id="ano-min-label">1990</span>
+          <input type="range" id="ano-min" min="1990" max="2026" value="1990" step="1">
+          <input type="range" id="ano-max" min="1990" max="2026" value="2026" step="1">
+          <span id="ano-max-label">2026</span>
+        </div>
+        <p class="range-hint">Arraste para filtrar por ano de declaração</p>
+      </section>
+
+      <!-- Busca por país -->
+      <section class="filter-group">
+        <h2>Busca</h2>
+        <input type="search" id="pais-search" placeholder="País, jurisdição…" autocomplete="off">
+        <ul id="search-results"></ul>
+      </section>
+
+    </div><!-- /filters -->
+
+    <!-- Rodapé com contagem e legenda de cores -->
+    <footer id="sidebar-footer">
+      <div class="legend">
+        <div class="legend-row"><span class="dot" data-color="vermelho"></span> Declaração nacional</div>
+        <div class="legend-row"><span class="dot" data-color="laranja"></span> Estadual / provincial</div>
+        <div class="legend-row"><span class="dot" data-color="amarelo"></span> Municipal / local</div>
+        <div class="legend-row"><span class="dot" data-color="azul"></span> Atribuição WWA</div>
+        <div class="legend-row"><span class="dot" data-color="roxo"></span> Quase-CED / rejeitada</div>
+        <div class="legend-row"><span class="dot" data-color="cinza"></span> Sem registro</div>
+      </div>
+      <p class="sources">
+        Fontes: <a href="https://cedamia.org" target="_blank" rel="noopener">CEDAMIA</a> ·
+        <a href="https://worldweatherattribution.org" target="_blank" rel="noopener">WWA</a> ·
+        <a href="https://naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a>
+      </p>
+    </footer>
+
+  </aside><!-- /sidebar -->
+
+  <!-- ── Mapa principal ────────────────────────────────────────────────── -->
+  <main id="map-wrap">
+    <div id="map"></div>
+
+    <!-- Contador flutuante -->
+    <div id="map-stats">
+      <span id="stat-jurisdictions">–</span> jurisdições visíveis ·
+      <span id="stat-countries">–</span> países
+    </div>
+
+    <!-- Botão para abrir sidebar quando recolhida -->
+    <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden>☰ Filtros</button>
+  </main>
+
+  <!-- ── Painel de informação (clique no mapa) ────────────────────────── -->
+  <div id="info-panel" class="hidden">
+    <div id="info-header">
+      <h3 id="info-title">—</h3>
+      <button id="info-close" aria-label="Fechar">✕</button>
+    </div>
+    <div id="info-tabs">
+      <button class="tab-btn active" data-tab="declaracoes">Declarações</button>
+      <button class="tab-btn" data-tab="atribuicao">Atribuição WWA</button>
+      <button class="tab-btn" data-tab="quase">Quase-CED</button>
+    </div>
+    <div id="info-content">
+      <ul id="info-list"></ul>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Carregando dados…</p>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+<script type="module" src="js/app.js?v=3"></script>
+</body>
+</html>

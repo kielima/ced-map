@@ -1,0 +1,13 @@
+# Normalizar line endings
+* text=auto
+
+# GeoJSON — manter LF
+*.geojson text eol=lf
+
+# JSON — manter LF
+*.json text eol=lf
+
+# JavaScript, CSS, HTML — LF
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
