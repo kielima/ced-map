@@ -980,19 +980,21 @@ function renderAllSections() {
   const label = escHtml(selectedScope.displayName || selectedScope.iso || '');
 
   for (const [key, entries] of Object.entries(buckets)) {
-    const list  = document.querySelector(`[data-list-for="${key}"]`);
-    const count = document.querySelector(`[data-count-for="${key}"]`);
+    const list    = document.querySelector(`[data-list-for="${key}"]`);
+    const count   = document.querySelector(`[data-count-for="${key}"]`);
+    const section = document.querySelector(`[data-section="${key}"]`);
     if (!list || !count) continue;
 
-    count.textContent = entries.length;
-    if (entries.length === 0) count.setAttribute('data-zero', '');
-    else                       count.removeAttribute('data-zero');
-
-    list.innerHTML = '';
-    if (!entries.length) {
-      list.innerHTML = `<li class="no-data">${t('no-data')} ${label}.</li>`;
+    if (entries.length === 0) {
+      if (section) section.style.display = 'none';
       continue;
     }
+    if (section) section.style.display = '';
+
+    count.textContent = entries.length;
+    count.removeAttribute('data-zero');
+
+    list.innerHTML = '';
     for (const e of entries) {
       const li = document.createElement('li');
       li.innerHTML = `
