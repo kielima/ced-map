@@ -979,8 +979,9 @@ function setupFiltersUI() {
   document.querySelectorAll('#filter-nivel .pill').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = btn.dataset.value;
-      btn.classList.toggle('active');
-      if (btn.classList.contains('active')) {
+      const active = btn.classList.toggle('active');
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      if (active) {
         filters.niveis.add(val);
       } else {
         filters.niveis.delete(val);
@@ -1176,24 +1177,51 @@ function hideLoading() {
 
 const statsCharts = { timeline: null, countries: null, nivel: null };
 
+let statsPreviousFocus = null;
+
 function openStatsPanel() {
-  document.getElementById('stats-panel').classList.remove('hidden');
+  const panel = document.getElementById('stats-panel');
+  statsPreviousFocus = document.activeElement;
+  panel.classList.remove('hidden');
   if (typeof Chart === 'undefined') {
     console.warn('Chart.js não carregado — verifique o CDN.');
     return;
   }
   if (!statsCharts.timeline) createCharts();
   updateCharts();
+  // Focus inicial no botão fechar para suportar Esc + screen reader
+  document.getElementById('stats-close').focus();
   document.addEventListener('keydown', onStatsKey);
 }
 
 function closeStatsPanel() {
   document.getElementById('stats-panel').classList.add('hidden');
   document.removeEventListener('keydown', onStatsKey);
+  // Restaurar foco para o botão que abriu o modal
+  if (statsPreviousFocus && typeof statsPreviousFocus.focus === 'function') {
+    statsPreviousFocus.focus();
+  }
+  statsPreviousFocus = null;
 }
 
 function onStatsKey(e) {
-  if (e.key === 'Escape') closeStatsPanel();
+  if (e.key === 'Escape') { closeStatsPanel(); return; }
+  if (e.key !== 'Tab') return;
+  // Focus trap: cicla foco apenas dentro do modal
+  const panel = document.getElementById('stats-panel');
+  const focusables = panel.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last  = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 function createCharts() {
@@ -1466,7 +1494,9 @@ function syncUIFromFilters() {
     cb.checked = filters.layers.has(cb.value);
   });
   document.querySelectorAll('#filter-nivel .pill').forEach(btn => {
-    btn.classList.toggle('active', filters.niveis.has(btn.dataset.value));
+    const on = filters.niveis.has(btn.dataset.value);
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   const sliderMin = document.getElementById('ano-min');
   const sliderMax = document.getElementById('ano-max');

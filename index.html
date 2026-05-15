@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=7" rel="stylesheet">
+  <link href="style.css?v=8" rel="stylesheet">
 </head>
 <body>
 
@@ -66,10 +66,10 @@
       <!-- Nível administrativo -->
       <section class="filter-group">
         <h2 data-i18n="sec-nivel">Nível</h2>
-        <div class="pill-group" id="filter-nivel">
-          <button class="pill active" data-value="nacional" data-i18n="pill-nacional">Nacional</button>
-          <button class="pill active" data-value="estadual" data-i18n="pill-estadual">Estadual</button>
-          <button class="pill active" data-value="municipal" data-i18n="pill-municipal">Municipal</button>
+        <div class="pill-group" id="filter-nivel" role="group" aria-labelledby="sec-nivel-label">
+          <button class="pill active" data-value="nacional" data-i18n="pill-nacional" aria-pressed="true">Nacional</button>
+          <button class="pill active" data-value="estadual" data-i18n="pill-estadual" aria-pressed="true">Estadual</button>
+          <button class="pill active" data-value="municipal" data-i18n="pill-municipal" aria-pressed="true">Municipal</button>
         </div>
       </section>
 
@@ -126,7 +126,7 @@
     <div id="map"></div>
 
     <!-- Contador flutuante -->
-    <div id="map-stats">
+    <div id="map-stats" aria-live="polite" aria-atomic="true">
       <span id="stat-jurisdictions">–</span> <span data-i18n="stat-label">jurisdições visíveis</span> ·
       <span id="stat-countries">–</span> <span data-i18n="stat-countries-label">países</span>
     </div>
@@ -206,6 +206,6 @@
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script type="module" src="js/app.js?v=12"></script>
+<script type="module" src="js/app.js?v=13"></script>
 </body>
 </html>
