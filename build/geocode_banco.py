@@ -116,18 +116,35 @@ def clean_entity_name(name: str) -> str:
 
     Ex.: 'City of Berkeley Council' → 'Berkeley'
          'Toronto City Council'     → 'Toronto'
+         'Agematsu Town (上松町)'   → 'Agematsu'
+         'Acton Town Meeting'       → 'Acton'
+         'Buk-gu (부산 북구), Busan' → 'Buk-gu'
     """
     n = name
+    # Remover parênteses com caracteres CJK (japonês/coreano/chinês)
+    n = re.sub(r"\s*\([　-鿿가-힯\s]+\)", "", n)
+    # Remover sufixo após vírgula (ex.: "Buk-gu, Busan" → "Buk-gu")
+    # Mantém só a primeira parte se houver vírgula
+    if "," in n:
+        n = n.split(",", 1)[0]
     # Remover prefixos
     n = re.sub(r"^(city of|town of|district of|municipality of|borough of)\s+",
                "", n, flags=re.IGNORECASE)
-    # Remover sufixos governamentais
-    n = re.sub(
+    # Remover sufixos governamentais (em loop, pois alguns são compostos)
+    suffix_re = re.compile(
         r"\s+(city council|town council|borough council|district council|"
-        r"county council|municipal council|council|parliament|assembly|"
-        r"legislative assembly|government)\s*$",
-        "", n, flags=re.IGNORECASE,
+        r"county council|municipal council|town meeting|town board|"
+        r"common meeting|common council|board of commissioners|"
+        r"city commission|county commission|council|parliament|assembly|"
+        r"legislative assembly|government|town|city|village|municipality|"
+        r"shire|borough|district|county|province|prefecture)\s*$",
+        flags=re.IGNORECASE,
     )
+    for _ in range(4):  # até 4 sufixos compostos
+        new_n = suffix_re.sub("", n).strip()
+        if new_n == n.strip() or not new_n:
+            break
+        n = new_n
     return n.strip() or name.strip()
 
 
