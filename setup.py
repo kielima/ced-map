@@ -67,6 +67,13 @@ def convert_banco():
         except (ValueError, TypeError):
             return None
 
+    def parse_float(v):
+        try:
+            f = float(v)
+            return f if f == f else None  # NaN check
+        except (ValueError, TypeError):
+            return None
+
     # Padrões que indicam credenciais/tokens em URLs — não publicar no repo
     CREDENTIAL_PATTERNS = ("X-Amz-Credential", "X-Amz-Signature", "AWSAccessKeyId")
 
@@ -76,6 +83,8 @@ def convert_banco():
         rec["ano"]         = parse_int(rec.get("ano", ""))
         rec["id"]          = parse_int(rec.get("id", ""))
         rec["adm1_ne_id"]  = parse_int(rec.get("adm1_ne_id", ""))
+        rec["lat"]         = parse_float(rec.get("lat", ""))
+        rec["lon"]         = parse_float(rec.get("lon", ""))
         rec["verificado"]  = str(rec.get("verificado", "")).lower() in ("true", "1", "yes")
 
         # Remover URLs com credenciais AWS/assinadas (S3 pre-signed URLs)
