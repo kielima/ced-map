@@ -111,7 +111,7 @@ python build/build_banco_unificado.py && python setup.py
 - **1.973 entradas** totais
 - **74 países** distintos
 - **1.204/1.285** jurisdições sub-nacionais com ISO casadas com Natural Earth admin-1 (**93.7%**)
-- **963/1.285** jurisdições geocodificadas com lat/lon via Nominatim (**74.9%**)
+- **1.251/1.285** jurisdições geocodificadas com lat/lon via Nominatim (**97.4%**)
 - Fontes: CEDAMIA (1.847) · ALMOST-CED (91) · WWA (26) · MANUAL (9)
 - Níveis: municipal (1.868) · estadual (53) · nacional (52)
 
@@ -148,9 +148,9 @@ python build/build_banco_unificado.py && python setup.py
 ## Fase 3 — Camada municipal (concluída)
 
 ### Estado atual
-- ✅ `build/geocode_banco.py` — 963/1.285 jurisdições geocodificadas; cache em `build/geocodes.json`
+- ✅ `build/geocode_banco.py` — 1.251/1.285 jurisdições geocodificadas (97.4%); cache em `build/geocodes.json`. As 34 falhas restantes são typos no banco de origem, ISOs errados e entidades agregadas sem match no OSM.
 - ✅ `data/admin2_top5.geojson` — 6.893 polígonos GADM v4.1 top-10 (KOR, USA, CAN, JPN, DEU, AUS, ITA, GBR, ESP, FRA)
-- ✅ `data/banco.json` — inclui `lat`/`lon` para 818 entradas
+- ✅ `data/banco.json` — inclui `lat`/`lon` para 1.251 entradas
 - ✅ `js/app.js` — clustering MapLibre nativo + admin-2 lazy-load em zoom ≥ 6
 
 ### Atualizar geocoding (quando houver novas entradas)
