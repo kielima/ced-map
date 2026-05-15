@@ -3,7 +3,7 @@
  * Estratégia: Cache-first para assets estáticos, Network-first para dados.
  */
 
-const CACHE_VERSION = 'ced-map-v2';
+const CACHE_VERSION = 'ced-map-v3';
 const CACHE_STATIC  = `${CACHE_VERSION}-static`;
 const CACHE_DATA    = `${CACHE_VERSION}-data`;
 
@@ -58,7 +58,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Estáticos: Cache-first
+  // HTML / raiz: Network-first. Caso contrário um index.html cacheado
+  // referenciando app.js?v=N antigo nunca é atualizado, e o usuário fica preso
+  // em versão velha mesmo após deploys. Cai pro cache só se offline.
+  if (url.pathname.endsWith('/') || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(event.request, CACHE_STATIC));
+    return;
+  }
+
+  // Demais estáticos (JS, CSS, ícones): Cache-first.
+  // app.js?v=N tem query string distinta por versão, então cada deploy
+  // resulta numa chave de cache nova e o cache-first não fica preso.
   event.respondWith(cacheFirst(event.request, CACHE_STATIC));
 });
 
