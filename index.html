@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=4" rel="stylesheet">
+  <link href="style.css?v=5" rel="stylesheet">
 </head>
 <body>
 
@@ -100,9 +100,14 @@
         <div class="legend-row"><span class="dot" data-color="roxo"></span> Quase-CED / rejeitada</div>
         <div class="legend-row"><span class="dot" data-color="cinza"></span> Sem registro</div>
       </div>
-      <button id="export-csv" type="button" title="Baixar as entradas que passam pelos filtros ativos">
-        ↓ Exportar CSV (<span id="export-count">–</span>)
-      </button>
+      <div class="footer-actions">
+        <button id="stats-btn" type="button" title="Abrir painel de estatísticas">
+          📊 Estatísticas
+        </button>
+        <button id="export-csv" type="button" title="Baixar as entradas que passam pelos filtros ativos">
+          ↓ CSV (<span id="export-count">–</span>)
+        </button>
+      </div>
       <p class="sources">
         Fontes: <a href="https://cedamia.org" target="_blank" rel="noopener">CEDAMIA</a> ·
         <a href="https://worldweatherattribution.org" target="_blank" rel="noopener">WWA</a> ·
@@ -157,6 +162,36 @@
     </div>
   </div>
 
+  <!-- ── Painel de estatísticas (modal) ───────────────────────────────── -->
+  <div id="stats-panel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="stats-title">
+    <div id="stats-backdrop"></div>
+    <div id="stats-content">
+      <header id="stats-header">
+        <div>
+          <h2 id="stats-title">Estatísticas</h2>
+          <p id="stats-summary" class="stats-summary">– entradas · – países</p>
+        </div>
+        <button id="stats-close" aria-label="Fechar">✕</button>
+      </header>
+      <p class="stats-hint">
+        Reflete os filtros ativos. Ajuste camadas, níveis ou faixa de anos no painel
+        à esquerda para atualizar os gráficos.
+      </p>
+      <section class="chart-row">
+        <h3>Declarações por ano</h3>
+        <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
+      </section>
+      <section class="chart-row">
+        <h3>Top 10 países (por número de entradas)</h3>
+        <div class="chart-wrap chart-wrap--tall"><canvas id="chart-countries"></canvas></div>
+      </section>
+      <section class="chart-row">
+        <h3>Distribuição por nível</h3>
+        <div class="chart-wrap chart-wrap--small"><canvas id="chart-nivel"></canvas></div>
+      </section>
+    </div>
+  </div>
+
 </div><!-- /app -->
 
 <!-- Loading overlay -->
@@ -166,6 +201,7 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-<script type="module" src="js/app.js?v=9"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>
