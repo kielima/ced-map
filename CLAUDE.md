@@ -70,8 +70,9 @@ ced-map/                          ← raiz do repo (= ced-map-pwa/)
 |------|--------|-----------|
 | **Fase 1** | ✅ Concluída | PWA MVP com camada de países (admin-0), filtros dinâmicos, info panel, deploy GitHub Pages |
 | **Fase 2** | ✅ Concluída | Camada admin-1 (estados/províncias) com Natural Earth 50m + join rapidfuzz (`adm1_ne_id`) |
-| **Fase 3** | 🟡 Em andamento | Scripts e UI prontos. Pendente: rodar `geocode_banco.py` (Nominatim, ~22 min) e `build_admin2_polygons.py` (GADM v4.1, top-5) para gerar os dados. |
-| **Fase 4** | 🔴 Futura | Painel de estatísticas/charts (tendência temporal, ranking de países) |
+| **Fase 3** | ✅ Concluída | Geocoder Nominatim (818/1.285 hits), camada admin-2 GADM top-10, pontos cluster MapLibre |
+| **Fase 4** | ✅ Concluída | Painel de estatísticas Chart.js (timeline, top países, distribuição por nível) |
+| **Extras** | ✅ Concluídos | Deep linking por URL hash, export CSV, dark mode, i18n PT/EN |
 
 ---
 
@@ -110,6 +111,7 @@ python build/build_banco_unificado.py && python setup.py
 - **1.973 entradas** totais
 - **74 países** distintos
 - **1.204/1.285** jurisdições sub-nacionais com ISO casadas com Natural Earth admin-1 (**93.7%**)
+- **963/1.285** jurisdições geocodificadas com lat/lon via Nominatim (**74.9%**)
 - Fontes: CEDAMIA (1.847) · ALMOST-CED (91) · WWA (26) · MANUAL (9)
 - Níveis: municipal (1.868) · estadual (53) · nacional (52)
 
@@ -143,32 +145,20 @@ python build/build_banco_unificado.py && python setup.py
 
 ---
 
-## Fase 3 — Camada municipal
+## Fase 3 — Camada municipal (concluída)
 
-### Estado
-- ✅ `build/geocode_banco.py` — batch geocoder Nominatim com cache resumível (`build/geocodes.json`)
-- ✅ `build/build_admin2_polygons.py` — baixa GADM v4.1 admin-2 dos top-5 países, simplifica e gera `data/admin2_top5.geojson`
-- ✅ Schema do banco com `lat`/`lon` (gera silenciosamente sem cache; injeta coordenadas quando o cache existe)
-- ✅ `js/app.js` (v5) — clustering MapLibre nativo para pontos + admin-2 lazy-load em zoom ≥ 6
-- ⏳ Rodar o geocoder com internet (`python build/geocode_banco.py`) — ~22 min para os 1.285 alvos
-- ⏳ Rodar o builder admin-2 (`python build/build_admin2_polygons.py`) — baixa ~5 países do GADM v4.1
-- ⏳ Re-executar `build/build_banco_unificado.py` + `setup.py` para regenerar `banco.json` com lat/lon
+### Estado atual
+- ✅ `build/geocode_banco.py` — 963/1.285 jurisdições geocodificadas; cache em `build/geocodes.json`
+- ✅ `data/admin2_top5.geojson` — 6.893 polígonos GADM v4.1 top-10 (KOR, USA, CAN, JPN, DEU, AUS, ITA, GBR, ESP, FRA)
+- ✅ `data/banco.json` — inclui `lat`/`lon` para 818 entradas
+- ✅ `js/app.js` — clustering MapLibre nativo + admin-2 lazy-load em zoom ≥ 6
 
-### Como rodar a Fase 3 completa
+### Atualizar geocoding (quando houver novas entradas)
 ```bash
-# 1. Geocodificar (pode interromper com Ctrl+C e retomar; cache é incremental)
-pip install requests shapely
-python build/geocode_banco.py             # leva ~22 min na primeira vez
-python build/geocode_banco.py --retry-failed   # se algumas falharem
-
-# 2. Baixar e simplificar GADM admin-2 dos top-5 países
-python build/build_admin2_polygons.py     # gera data/admin2_top5.geojson
-
-# 3. Regenerar banco com lat/lon
+pip install requests shapely pandas openpyxl
+python build/geocode_banco.py             # geocodifica o que falta no cache
+python build/geocode_banco.py --retry-failed   # tenta de novo as falhas
 python build/build_banco_unificado.py && python setup.py
-
-# 4. Testar
-python setup.py serve
 ```
 
 ### Top países por jurisdição sub-nacional
