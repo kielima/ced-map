@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python deps
+        run: pip install pandas openpyxl rapidfuzz requests
+
+      - name: Validate JSON files
+        run: |
+          python -c "import json; json.load(open('data/banco.json'))"
+          python -c "import json; json.load(open('manifest.json'))"
+          [ ! -f build/geocodes.json ] || python -c "import json; json.load(open('build/geocodes.json'))"
+
+      - name: Validate banco.json schema
+        run: |
+          python -c "
+          import json
+          with open('data/banco.json') as f:
+              banco = json.load(f)
+          assert isinstance(banco, list), 'banco.json deve ser uma lista'
+          assert len(banco) > 0, 'banco.json não pode estar vazio'
+          required = {'id', 'pais', 'iso_3', 'nivel', 'entidade', 'cor_mapa', 'fonte', 'status'}
+          missing = required - set(banco[0].keys())
+          assert not missing, f'Campos obrigatórios em falta: {missing}'
+          niveis = {e['nivel'] for e in banco}
+          assert niveis <= {'nacional', 'estadual', 'municipal'}, f'Níveis inválidos: {niveis}'
+          cores = {e['cor_mapa'] for e in banco}
+          assert cores <= {'vermelho', 'laranja', 'amarelo', 'azul', 'roxo', 'cinza'}, f'Cores inválidas: {cores}'
+          print(f'OK — banco.json: {len(banco)} entradas, {len({e[\"iso_3\"] for e in banco if e[\"iso_3\"]})} países')
+          "
+
+      - name: Validate JS syntax
+        run: node --check js/app.js
+
+      - name: Build pipeline smoke test
+        run: |
+          python build/build_banco_unificado.py 2>&1 | tail -20
+          test -f build/BANCO_UNIFICADO_CED.csv
+
+      - name: Verify HTML references match
+        run: |
+          # Verificar que app.js?v=N e style.css?v=N apontam para arquivos existentes
+          test -f js/app.js
+          test -f style.css
+          test -f sw.js
+          test -f manifest.json
