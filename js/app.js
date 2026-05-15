@@ -893,6 +893,9 @@ function setupFiltersUI() {
   // Botão fechar info-panel
   document.getElementById('info-close').addEventListener('click', hideInfoPanel);
 
+  // Exportar CSV (entradas que passam pelos filtros ativos)
+  document.getElementById('export-csv').addEventListener('click', exportFilteredAsCSV);
+
   // Toggle sidebar
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.add('collapsed');
@@ -974,12 +977,59 @@ function updateLayerCounts() {
   document.getElementById('count-ced-formal').textContent = countCed ? `${countCed} decl.` : '';
   document.getElementById('count-wwa').textContent        = countWwa  ? `${countWwa} países` : '';
   document.getElementById('count-almost').textContent     = countAlmost ? `${countAlmost} casos` : '';
+
+  const exportCount = document.getElementById('export-count');
+  const exportBtn   = document.getElementById('export-csv');
+  if (exportCount) exportCount.textContent = filtered.length.toLocaleString('pt-BR');
+  if (exportBtn)   exportBtn.disabled = filtered.length === 0;
 }
 
 function hideLoading() {
   const el = document.getElementById('loading');
   el.classList.add('done');
   setTimeout(() => el.remove(), 500);
+}
+
+// ── Exportar CSV ──────────────────────────────────────────────────────────────
+
+const CSV_COLUMNS = [
+  'id', 'pais', 'iso_3', 'nivel', 'entidade', 'regiao', 'ano', 'data_completa',
+  'status', 'fonte', 'tipo_evidencia', 'cor_mapa', 'url_documento', 'url_referencia',
+  'fator_risco_wwa', 'justificativa', 'observacoes', 'verificado',
+  'adm1_ne_id', 'lat', 'lon',
+];
+
+function exportFilteredAsCSV() {
+  const rows = getFilteredEntries();
+  if (!rows.length) return;
+  // BOM (U+FEFF) força Excel a reconhecer UTF-8 (acentos não corrompem).
+  const csv = '\ufeff' + rowsToCSV(rows, CSV_COLUMNS);
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadBlob(csv, `ced-map-${stamp}.csv`, 'text/csv;charset=utf-8');
+}
+
+function rowsToCSV(rows, cols) {
+  const out = [cols.join(',')];
+  for (const r of rows) out.push(cols.map(c => csvEscape(r[c])).join(','));
+  return out.join('\r\n');
+}
+
+function csvEscape(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 // ── Deep linking (estado dos filtros + escopo + view na URL) ──────────────────

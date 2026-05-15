@@ -247,6 +247,23 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 .dot[data-color="roxo"]     { background: var(--c-roxo); }
 .dot[data-color="cinza"]    { background: var(--c-cinza); }
 
+#export-csv {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  background: var(--pill-bg);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+#export-csv:hover { background: var(--pill-active); border-color: var(--accent); }
+#export-csv:disabled { opacity: 0.5; cursor: not-allowed; }
+#export-csv #export-count { color: var(--text-muted); font-weight: 400; }
+
 .sources { font-size: 0.68rem; color: var(--text-muted); }
 .sources a { color: var(--accent); text-decoration: none; }
 .sources a:hover { text-decoration: underline; }
