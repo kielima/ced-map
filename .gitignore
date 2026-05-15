@@ -2,7 +2,8 @@
 data/ne_10m_admin1.geojson
 data/ne_10m_admin1_slim.geojson
 data/ne_50m_admin1.geojson
-# ne_50m_admin1_slim.geojson é commitado — gerado pelo setup.py e servido pelo GitHub Pages
+# ne_50m_admin1_slim.geojson é commitado (~5-6 MB, gerado a partir do 10m
+# com simplificação shapely — nome legado, conteúdo agora é 10m simplificado)
 
 # Configuração local de dev
 .claude/

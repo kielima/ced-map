@@ -109,7 +109,7 @@ python build/build_banco_unificado.py && python setup.py
 
 - **1.973 entradas** totais
 - **74 países** distintos
-- **455/1.921** jurisdições sub-nacionais com `adm1_ne_id` (join com Natural Earth admin-1)
+- **1.204/1.285** jurisdições sub-nacionais com ISO casadas com Natural Earth admin-1 (**93.7%**)
 - Fontes: CEDAMIA (1.847) · ALMOST-CED (91) · WWA (26) · MANUAL (9)
 - Níveis: municipal (1.868) · estadual (53) · nacional (52)
 

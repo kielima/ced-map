@@ -25,10 +25,13 @@ DATA      = BASE / "data"
 BANCO_CSV = BASE / "build" / "BANCO_UNIFICADO_CED.csv"
 
 # ── URLs dos dados geográficos (Natural Earth via GitHub) ─────────────────────
+# Usamos a versão 10m do admin-1 — a 50m só cobre 9 países federativos grandes
+# (RUS, USA, IND, CHN, BRA, CAN, AUS, ZAF, IDN). A 10m cobre 251 países / 4596
+# unidades, simplificada via shapely no slim_admin1().
 NE_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson"
 GEO_FILES = {
     "ne_110m_countries.geojson":  f"{NE_BASE}/ne_110m_admin_0_countries.geojson",
-    "ne_50m_admin1.geojson":      f"{NE_BASE}/ne_50m_admin_1_states_provinces.geojson",
+    "ne_10m_admin1.geojson":      f"{NE_BASE}/ne_10m_admin_1_states_provinces.geojson",
 }
 
 
@@ -103,40 +106,62 @@ def convert_banco():
 
 def slim_admin1():
     """
-    Reduz o arquivo 50m admin1 para apenas os campos necessários.
-    Mantém: ne_id (join key), name, adm0_a3, iso_3166_2 + geometry
-    O ne_id é o ID estável do Natural Earth, usado como promoteId no MapLibre.
+    Reduz e simplifica o admin-1 10m do Natural Earth para servir à PWA.
+    - Source:   data/ne_10m_admin1.geojson      (~40 MB, gitignored)
+    - Saída:    data/ne_50m_admin1_slim.geojson (~5-6 MB, commitado)
+
+    Mantém: ne_id (join key), name, name_en (para join PT/EN), adm0_a3, iso_3166_2.
+    Simplifica geometria via Douglas-Peucker (shapely, tol=0.02° ≈ 2 km), suficiente
+    para o mapa-mundi até zoom 6. O nome do arquivo de saída mantém o sufixo "50m"
+    por compatibilidade com URLs já cacheadas pelo service worker.
     """
     import json
+    try:
+        from shapely.geometry import shape, mapping
+    except ImportError:
+        print("  [ERRO] shapely não instalado. pip install shapely")
+        return
 
-    src = DATA / "ne_50m_admin1.geojson"
+    src = DATA / "ne_10m_admin1.geojson"
     out = DATA / "ne_50m_admin1_slim.geojson"
 
     if out.exists():
-        print(f"  ✓ {out.name} já existe, pulando")
+        print(f"  ✓ {out.name} já existe, pulando (apague para regenerar)")
         return
 
     if not src.exists():
         print(f"  [AVISO] {src.name} não encontrado, pulando slim.")
         return
 
-    print(f"  Reduzindo ne_50m_admin1.geojson...", end=" ", flush=True)
-    # ne_id é crítico — é o join key entre banco.json e o GeoJSON
-    KEEP_PROPS = {"ne_id", "name", "adm0_a3", "iso_3166_2"}
+    print(f"  Simplificando {src.name} (tol=0.02°)...", end=" ", flush=True)
+    KEEP_PROPS = ("ne_id", "name", "name_en", "adm0_a3", "iso_3166_2")
+    TOL = 0.02
 
     with open(src, encoding="utf-8") as f:
         gj = json.load(f)
 
+    out_features = []
     for feat in gj["features"]:
-        props = feat.get("properties", {})
-        # Usar .get(k) sem default para preservar tipos (ne_id é int, não str)
-        feat["properties"] = {k: props.get(k) for k in KEEP_PROPS}
+        props = feat.get("properties") or {}
+        slim_props = {k: props.get(k) for k in KEEP_PROPS}
+        try:
+            g = shape(feat["geometry"]).simplify(TOL, preserve_topology=True)
+            if g.is_empty:
+                continue
+            out_features.append({
+                "type": "Feature",
+                "properties": slim_props,
+                "geometry": mapping(g),
+            })
+        except Exception:
+            continue
 
+    new_gj = {"type": "FeatureCollection", "features": out_features}
     with open(out, "w", encoding="utf-8") as f:
-        json.dump(gj, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(new_gj, f, ensure_ascii=False, separators=(",", ":"))
 
-    size_kb = out.stat().st_size // 1024
-    print(f"{size_kb} KB")
+    size_mb = out.stat().st_size / 1024 / 1024
+    print(f"{size_mb:.1f} MB, {len(out_features)} features")
 
 
 def serve():
