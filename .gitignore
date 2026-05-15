@@ -1,6 +1,8 @@
-# Dados geográficos pesados — baixar via setup.py
+# Dados geográficos pesados (fontes brutas) — baixar via setup.py
 data/ne_10m_admin1.geojson
 data/ne_10m_admin1_slim.geojson
+data/ne_50m_admin1.geojson
+# ne_50m_admin1_slim.geojson é commitado — gerado pelo setup.py e servido pelo GitHub Pages
 
 # Configuração local de dev
 .claude/

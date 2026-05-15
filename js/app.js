@@ -79,7 +79,7 @@ function setupMap() {
   map.on('error', e => console.warn('MapLibre:', e.error?.message));
 }
 
-async function onMapLoad() {
+async function onMapLoad() {  // async: aguarda loadAdmin1Layer()
   // Carregar GeoJSON de países (Natural Earth 110m)
   let countriesGeo;
   try {
@@ -102,14 +102,19 @@ async function onMapLoad() {
     promoteId: 'ADM0_A3',  // usar ISO-A3 como feature ID para setFeatureState
   });
 
-  // Layer: fill de países
+  // Layer: fill de países — opacidade reduz ao zoom in (admin-1 assume)
   map.addLayer({
     id: 'countries-fill',
     type: 'fill',
     source: 'countries',
     paint: {
       'fill-color': buildCountryColorExpr(),
-      'fill-opacity': 0.75,
+      'fill-opacity': [
+        'interpolate', ['linear'], ['zoom'],
+        2, 0.75,
+        4, 0.45,
+        6, 0.20,
+      ],
     },
   }, firstSymbolLayer());
 
@@ -137,8 +142,8 @@ async function onMapLoad() {
     },
   });
 
-  // Admin-1 (estados/províncias) — Phase 2: requer join regiao→admin1 ID
-  // loadAdmin1Layer();  // desabilitado no MVP para evitar freeze com 29MB GeoJSON
+  // Admin-1 (estados/províncias) — Phase 2 com Natural Earth 50m + join ne_id
+  await loadAdmin1Layer();
 
   // Interatividade
   map.on('click', 'countries-fill', onCountryClick);
@@ -156,15 +161,25 @@ function firstSymbolLayer() {
   return layers.find(l => l.type === 'symbol')?.id;
 }
 
-/** Tenta carregar admin-1 (states/provinces) se disponível */
+/** Carrega admin-1 (estados/províncias) — Natural Earth 50m com promoteId ne_id */
 async function loadAdmin1Layer() {
   try {
-    const r = await fetch('data/ne_10m_admin1_slim.geojson');
-    if (!r.ok) return;
+    const r = await fetch('data/ne_50m_admin1_slim.geojson');
+    if (!r.ok) {
+      console.info('Admin-1 GeoJSON não disponível (execute setup.py). Pulando.');
+      return;
+    }
     const geo = await r.json();
 
-    map.addSource('admin1', { type: 'geojson', data: geo });
+    // promoteId: 'ne_id' → cada feature recebe o ne_id como ID numérico do MapLibre
+    // Isso permite ['id'] nas expressões de paint para lookup O(1)
+    map.addSource('admin1', {
+      type: 'geojson',
+      data: geo,
+      promoteId: 'ne_id',
+    });
 
+    // Inserir admin1-fill ACIMA de countries-border mas ABAIXO de countries-highlight
     map.addLayer({
       id: 'admin1-fill',
       type: 'fill',
@@ -172,9 +187,14 @@ async function loadAdmin1Layer() {
       minzoom: 3,
       paint: {
         'fill-color': buildAdmin1ColorExpr(),
-        'fill-opacity': 0.7,
+        // Aparece suavemente ao dar zoom in
+        'fill-opacity': [
+          'interpolate', ['linear'], ['zoom'],
+          3, 0,
+          4, 0.82,
+        ],
       },
-    }, 'countries-fill');
+    }, 'countries-highlight'); // inserido abaixo do highlight de seleção
 
     map.addLayer({
       id: 'admin1-border',
@@ -183,14 +203,23 @@ async function loadAdmin1Layer() {
       minzoom: 3,
       paint: {
         'line-color': '#ffffff',
-        'line-width': 0.3,
-        'line-opacity': 0.4,
+        'line-width': 0.5,
+        'line-opacity': [
+          'interpolate', ['linear'], ['zoom'],
+          3, 0,
+          4, 0.5,
+        ],
       },
-    }, 'countries-border');
+    }, 'countries-highlight');
 
-    console.info('Admin-1 (estados) carregado.');
-  } catch (_) {
-    // Silencioso — admin1 é opcional no MVP
+    // Interatividade na camada admin-1
+    map.on('click', 'admin1-fill', onAdmin1Click);
+    map.on('mousemove', 'admin1-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'admin1-fill', () => { map.getCanvas().style.cursor = ''; });
+
+    console.info(`Admin-1 carregado: ${geo.features?.length ?? '?'} polígonos.`);
+  } catch (err) {
+    console.warn('Admin-1 não carregado:', err.message);
   }
 }
 
@@ -222,13 +251,35 @@ function buildCountryColorExpr() {
 
 /**
  * Expressão de cor para admin-1 (estados/províncias).
- * Filtra apenas entradas de nível estadual e municipal.
- * Propriedade: adm0_a3 (país) + name (nome do estado para match fuzzy).
+ * Usa ['id'] para acessar o ne_id (promoteId na source),
+ * casando com adm1_ne_id do banco. Prioridade: laranja > amarelo > outros.
  */
 function buildAdmin1ColorExpr() {
-  // Simplificação MVP: colorir estados pelo país (herdar cor do país pai)
-  // Substituir por match nome-estado quando o banco tiver join com admin1 IDs
-  return buildCountryColorExpr();
+  const expr = ['match', ['id']];
+
+  const filtered = getFilteredEntries();
+
+  // Agrupar entradas sub-nacionais por adm1_ne_id
+  const byNeId = {};
+  for (const e of filtered) {
+    if (!e.adm1_ne_id) continue;  // nulos e nacionais ficam de fora
+    const id = e.adm1_ne_id;      // já é número (parse_int no setup.py)
+    if (!byNeId[id]) byNeId[id] = [];
+    byNeId[id].push(e);
+  }
+
+  for (const [idStr, entries] of Object.entries(byNeId)) {
+    const neId = Number(idStr);
+    const color = topColor(entries);
+    if (color && color !== 'cinza') {
+      expr.push(neId, COLORS[color]);
+    }
+  }
+
+  // match exige ao menos um par input→output antes do default
+  if (expr.length < 4) return 'rgba(0,0,0,0)';  // totalmente transparente se vazio
+  expr.push('rgba(0,0,0,0)');  // default transparente (mostra apenas estados com dados)
+  return expr;
 }
 
 /** Agrupa banco filtrado por iso_3 */
@@ -300,6 +351,19 @@ function onCountryClick(e) {
     || feat.properties.NAME
     || iso;
 
+  selectCountry(iso, name);
+}
+
+/** Clique em polígono admin-1 — encontra o país pai e abre o painel */
+function onAdmin1Click(e) {
+  if (!e.features.length) return;
+  const props = e.features[0].properties;
+  // adm0_a3 no Natural Earth corresponde ao iso_3 do banco
+  const iso = (props.adm0_a3 || '').toUpperCase();
+  if (!iso) return;
+  // Nome do país a partir do banco
+  const entry = banco.find(b => b.iso_3 === iso);
+  const name = entry?.pais || iso;
   selectCountry(iso, name);
 }
 
@@ -521,15 +585,13 @@ function flyToCountry(iso, name) {
 function applyFilters() {
   if (!map || !map.isStyleLoaded()) return;
 
-  const expr = buildCountryColorExpr();
-
   if (map.getLayer('countries-fill')) {
-    map.setPaintProperty('countries-fill', 'fill-color', expr);
+    map.setPaintProperty('countries-fill', 'fill-color', buildCountryColorExpr());
   }
-  // admin1-fill desabilitado no MVP
-  // if (map.getLayer('admin1-fill')) {
-  //   map.setPaintProperty('admin1-fill', 'fill-color', buildAdmin1ColorExpr());
-  // }
+
+  if (map.getLayer('admin1-fill')) {
+    map.setPaintProperty('admin1-fill', 'fill-color', buildAdmin1ColorExpr());
+  }
 
   updateStats();
   updateLayerCounts();

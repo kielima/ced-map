@@ -27,7 +27,7 @@ BANCO_CSV = BASE.parent / "BANCO_UNIFICADO_CED.csv"
 NE_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson"
 GEO_FILES = {
     "ne_110m_countries.geojson":  f"{NE_BASE}/ne_110m_admin_0_countries.geojson",
-    "ne_10m_admin1.geojson":      f"{NE_BASE}/ne_10m_admin_1_states_provinces.geojson",
+    "ne_50m_admin1.geojson":      f"{NE_BASE}/ne_50m_admin_1_states_provinces.geojson",
 }
 
 
@@ -66,12 +66,23 @@ def convert_banco():
         except (ValueError, TypeError):
             return None
 
+    # Padrões que indicam credenciais/tokens em URLs — não publicar no repo
+    CREDENTIAL_PATTERNS = ("X-Amz-Credential", "X-Amz-Signature", "AWSAccessKeyId")
+
     records = []
     for _, row in df.iterrows():
         rec = row.to_dict()
-        rec["ano"] = parse_int(rec.get("ano", ""))
-        rec["id"]  = parse_int(rec.get("id", ""))
-        rec["verificado"] = str(rec.get("verificado", "")).lower() in ("true", "1", "yes")
+        rec["ano"]         = parse_int(rec.get("ano", ""))
+        rec["id"]          = parse_int(rec.get("id", ""))
+        rec["adm1_ne_id"]  = parse_int(rec.get("adm1_ne_id", ""))
+        rec["verificado"]  = str(rec.get("verificado", "")).lower() in ("true", "1", "yes")
+
+        # Remover URLs com credenciais AWS/assinadas (S3 pre-signed URLs)
+        for url_field in ("url_documento", "url_referencia"):
+            url_val = rec.get(url_field, "") or ""
+            if any(pat in url_val for pat in CREDENTIAL_PATTERNS):
+                rec[url_field] = ""
+
         records.append(rec)
 
     out.write_text(json.dumps(records, ensure_ascii=False, indent=None), encoding="utf-8")
@@ -82,13 +93,14 @@ def convert_banco():
 
 def slim_admin1():
     """
-    Reduz o arquivo admin1 (~20MB) para apenas os campos necessários (~4MB).
-    Mantém: name, admin, adm0_a3, postal, abbrev + geometry
+    Reduz o arquivo 50m admin1 para apenas os campos necessários.
+    Mantém: ne_id (join key), name, adm0_a3, iso_3166_2 + geometry
+    O ne_id é o ID estável do Natural Earth, usado como promoteId no MapLibre.
     """
     import json
 
-    src = DATA / "ne_10m_admin1.geojson"
-    out = DATA / "ne_10m_admin1_slim.geojson"
+    src = DATA / "ne_50m_admin1.geojson"
+    out = DATA / "ne_50m_admin1_slim.geojson"
 
     if out.exists():
         print(f"  ✓ {out.name} já existe, pulando")
@@ -98,15 +110,17 @@ def slim_admin1():
         print(f"  [AVISO] {src.name} não encontrado, pulando slim.")
         return
 
-    print(f"  Reduzindo ne_10m_admin1.geojson...", end=" ", flush=True)
-    KEEP_PROPS = {"name", "admin", "adm0_a3", "postal", "abbrev", "iso_3166_2"}
+    print(f"  Reduzindo ne_50m_admin1.geojson...", end=" ", flush=True)
+    # ne_id é crítico — é o join key entre banco.json e o GeoJSON
+    KEEP_PROPS = {"ne_id", "name", "adm0_a3", "iso_3166_2"}
 
     with open(src, encoding="utf-8") as f:
         gj = json.load(f)
 
     for feat in gj["features"]:
         props = feat.get("properties", {})
-        feat["properties"] = {k: props.get(k, "") for k in KEEP_PROPS}
+        # Usar .get(k) sem default para preservar tipos (ne_id é int, não str)
+        feat["properties"] = {k: props.get(k) for k in KEEP_PROPS}
 
     with open(out, "w", encoding="utf-8") as f:
         json.dump(gj, f, ensure_ascii=False, separators=(",", ":"))
@@ -149,11 +163,16 @@ def main():
     print("\n[2] Banco de dados:")
     convert_banco()
 
-    print("\n[3] Otimizando admin-1:")
+    print("\n[3] Otimizando admin-1 (50m):")
     slim_admin1()
 
     print("\n" + "=" * 50)
-    print("Setup concluído! Para abrir a PWA:")
+    print("Setup concluído!")
+    print("Fluxo recomendado para rebuild completo:")
+    print("  1. python ced-map-pwa/setup.py        (baixar geo + slim)")
+    print("  2. python build_banco_unificado.py    (banco com adm1_ne_id)")
+    print("  3. python ced-map-pwa/setup.py        (converter banco.csv → banco.json)")
+    print(f"\nPara testar localmente:")
     print(f"  cd {BASE}")
     print(f"  python setup.py serve")
     print(f"  Acesse: http://localhost:8080")
