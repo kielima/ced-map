@@ -413,7 +413,11 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
   justify-content: space-between;
   padding: 12px 16px 8px;
   border-bottom: 1px solid #e5e7eb;
+  cursor: ns-resize;
+  user-select: none;
+  touch-action: none;
 }
+#info-close { cursor: pointer; touch-action: auto; }
 #info-title { font-size: 0.95rem; font-weight: 600; color: #1a2332; }
 #info-close {
   background: none;
