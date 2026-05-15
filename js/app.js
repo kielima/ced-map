@@ -37,6 +37,11 @@ const LANG = {
     'empty-hint':           '— ajuste os filtros para ver dados',
     'admin2-loading':       'Carregando municípios…',
     'loading':              'Carregando dados…',
+    'action-report':        'Reportar',
+    'action-report-tip':    'Reportar inconsistência via GitHub Issue',
+    'action-verify':        'Verificar',
+    'verified-tooltip':     'Verificada manualmente',
+    'admin-banner':         '⚙️ Modo curadoria — só não-verificadas',
     'info-declaracoes':     'Declarações',
     'info-atribuicao':      'Atribuição WWA',
     'info-quase':           'Quase-CED',
@@ -93,6 +98,11 @@ const LANG = {
     'empty-hint':           '— adjust filters to see data',
     'admin2-loading':       'Loading municipalities…',
     'loading':              'Loading data…',
+    'action-report':        'Report',
+    'action-report-tip':    'Report inconsistency via GitHub Issue',
+    'action-verify':        'Verify',
+    'verified-tooltip':     'Manually verified',
+    'admin-banner':         '⚙️ Curator mode — unverified only',
     'info-declaracoes':     'Declarations',
     'info-atribuicao':      'WWA Attribution',
     'info-quase':           'Near-CED',
@@ -182,6 +192,11 @@ let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
 let selectedScope = null; // { iso, ne_id?, region_name?, admin2_name?, displayName }
 
+// Modo curador: ativado por ?admin=1 ou #admin no hash. Mostra botões de
+// "verificar" e filtra pelas não-verificadas no painel.
+let adminMode = new URLSearchParams(location.search).has('admin')
+             || /(^|[#&])admin(=1)?(&|$)/.test(location.hash);
+
 const filters = {
   layers:   new Set(['ced-formal', 'wwa', 'almost-ced']), // camadas ativas
   niveis:   new Set(['nacional', 'estadual', 'municipal']),
@@ -194,6 +209,7 @@ const filters = {
 async function init() {
   applyTheme();
   applyLang();
+  if (adminMode) showAdminBanner();
   try {
     banco = await loadBanco();
     const hashState = readStateFromHash();
@@ -765,6 +781,9 @@ function getFilteredEntries() {
     // Filtro de ano
     if (e.ano && (e.ano < filters.ano_min || e.ano > filters.ano_max)) return false;
 
+    // Modo curador: mostra só não-verificadas
+    if (adminMode && e.verificado) return false;
+
     return true;
   });
 }
@@ -973,6 +992,7 @@ function renderAllSections() {
         <div class="entry-entity">
           <span class="entry-badge badge-${e.cor_mapa}">${nivelLabel(e.nivel)}</span>
           ${escHtml(e.entidade)}
+          ${e.verificado ? ` <span class="verified-badge" title="${escHtml(t('verified-tooltip'))}">✓</span>` : ''}
         </div>
         <div class="entry-meta">
           ${e.data_completa ? `📅 ${escHtml(e.data_completa)}` : ''}
@@ -982,12 +1002,61 @@ function renderAllSections() {
             : ''}
           ${e.fator_risco_wwa ? `<br>⚠️ ${escHtml(e.fator_risco_wwa)}` : ''}
           ${e.justificativa ? `<br>ℹ️ ${escHtml(e.justificativa)}` : ''}
-          ${!e.verificado ? ' <span title="Não verificado manualmente">⚠️</span>' : ''}
+        </div>
+        <div class="entry-actions">
+          <a class="entry-action" href="${reportIssueUrl(e, 'report')}" target="_blank" rel="noopener" title="${escHtml(t('action-report-tip'))}">🚩 ${t('action-report')}</a>
+          ${adminMode && !e.verificado
+            ? `<a class="entry-action verify" href="${reportIssueUrl(e, 'verify')}" target="_blank" rel="noopener">✓ ${t('action-verify')}</a>`
+            : ''}
         </div>
       `;
       list.appendChild(li);
     }
   }
+}
+
+const REPORT_REPO = 'kielima/ced-map';
+
+function showAdminBanner() {
+  if (document.getElementById('admin-banner')) return;
+  const div = document.createElement('div');
+  div.id = 'admin-banner';
+  div.textContent = t('admin-banner');
+  document.body.appendChild(div);
+}
+
+function reportIssueUrl(entry, kind) {
+  const isVerify = kind === 'verify';
+  const title = isVerify
+    ? `[verify] ${entry.entidade} (id ${entry.id})`
+    : `[report] ${entry.entidade} (id ${entry.id})`;
+  const labels = isVerify ? 'verify' : 'report';
+  const body = [
+    isVerify
+      ? '## Confirmação de verificação manual'
+      : '## Reporte de inconsistência',
+    '',
+    isVerify
+      ? 'Marquei manualmente esta entrada como verificada após conferir as fontes.'
+      : 'Encontrei uma inconsistência nesta entrada. Detalhes abaixo:',
+    '',
+    '<!-- Descreva aqui o problema (campo errado, link quebrado, dados desatualizados, etc.) -->',
+    '',
+    '---',
+    '## Dados da entrada',
+    `- **id:** ${entry.id}`,
+    `- **entidade:** ${entry.entidade}`,
+    `- **país:** ${entry.pais} (${entry.iso_3 || '?'})`,
+    `- **região:** ${entry.regiao || '–'}`,
+    `- **nível:** ${entry.nivel}`,
+    `- **ano:** ${entry.ano || '–'}`,
+    `- **fonte:** ${entry.fonte}`,
+    `- **status:** ${entry.status}`,
+    entry.url_documento ? `- **url documento:** ${entry.url_documento}` : '',
+    entry.url_referencia ? `- **url referência:** ${entry.url_referencia}` : '',
+  ].filter(Boolean).join('\n');
+  const params = new URLSearchParams({ title, body, labels });
+  return `https://github.com/${REPORT_REPO}/issues/new?${params.toString()}`;
 }
 
 function nivelLabel(nivel) {
