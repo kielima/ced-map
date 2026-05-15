@@ -7,6 +7,12 @@ data/ne_50m_admin1.geojson
 # Configuração local de dev
 .claude/
 
+# Saídas derivadas do build (regeneradas por build_banco_unificado.py)
+build/BANCO_UNIFICADO_CED.xlsx
+
+# Cache de geocoding (gerado por geocode_banco.py na Fase 3)
+build/geocodes.json
+
 # Python
 __pycache__/
 *.pyc

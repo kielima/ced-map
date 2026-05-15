@@ -19,9 +19,10 @@ from pathlib import Path
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-BASE = Path(__file__).parent
-DATA = BASE / "data"
-BANCO_CSV = BASE.parent / "BANCO_UNIFICADO_CED.csv"
+BASE      = Path(__file__).parent
+DATA      = BASE / "data"
+# Localização do CSV gerado por build/build_banco_unificado.py
+BANCO_CSV = BASE / "build" / "BANCO_UNIFICADO_CED.csv"
 
 # ── URLs dos dados geográficos (Natural Earth via GitHub) ─────────────────────
 NE_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson"
