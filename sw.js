@@ -3,7 +3,7 @@
  * Estratégia: Cache-first para assets estáticos, Network-first para dados.
  */
 
-const CACHE_VERSION = 'ced-map-v3';
+const CACHE_VERSION = 'ced-map-v4';
 const CACHE_STATIC  = `${CACHE_VERSION}-static`;
 const CACHE_DATA    = `${CACHE_VERSION}-data`;
 
@@ -23,13 +23,17 @@ const DATA_ASSETS = [
 
 // ── Install: pré-cachear assets estáticos ────────────────────────────────────
 self.addEventListener('install', event => {
+  // skipWaiting força o SW novo a ativar imediatamente em vez de esperar
+  // todas as abas controladas pelo SW antigo serem fechadas. Combinado com
+  // clients.claim() no activate, garante que deploys propaguem na próxima
+  // requisição — sem isso, usuários ficam presos em versão antiga até
+  // fechar e reabrir todas as abas/PWAs.
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_STATIC).then(cache =>
       cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' })))
     )
   );
-  // Não chamamos skipWaiting() — o SW só ativa na próxima navegação,
-  // evitando que clients.claim() force um re-carregamento da página atual.
 });
 
 // ── Activate: limpar caches antigos ──────────────────────────────────────────
