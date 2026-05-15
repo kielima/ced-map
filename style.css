@@ -284,6 +284,11 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
 }
 .footer-actions > button:hover { background: var(--pill-active); border-color: var(--accent); }
 .footer-actions > button:disabled { opacity: 0.5; cursor: not-allowed; }
+.footer-actions > button.copied {
+  background: #2d8659;
+  border-color: #2d8659;
+  color: #fff;
+}
 #export-csv #export-count { color: var(--text-muted); font-weight: 400; }
 
 .sources { font-size: 0.68rem; color: var(--text-muted); }

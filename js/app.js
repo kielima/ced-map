@@ -27,6 +27,8 @@ const LANG = {
     'legend-roxo':          'Quase-CED / rejeitada',
     'legend-cinza':         'Sem registro',
     'btn-stats':            '📊 Estatísticas',
+    'btn-copy':             '🔗 Copiar link',
+    'btn-copy-ok':          '✓ Copiado!',
     'btn-csv':              '↓ CSV',
     'sources':              'Fontes:',
     'stat-label':           'jurisdições visíveis',
@@ -79,6 +81,8 @@ const LANG = {
     'legend-roxo':          'Near-CED / rejected',
     'legend-cinza':         'No record',
     'btn-stats':            '📊 Statistics',
+    'btn-copy':             '🔗 Copy link',
+    'btn-copy-ok':          '✓ Copied!',
     'btn-csv':              '↓ CSV',
     'sources':              'Sources:',
     'stat-label':           'visible jurisdictions',
@@ -218,9 +222,14 @@ function setupMap(hashState) {
     minZoom: 1.5,
     maxZoom: 14,
     attributionControl: false,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
   });
 
-  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+  map.touchZoomRotate.disableRotation();
+
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
   map.on('load', () => onMapLoad(hashState));
@@ -1042,6 +1051,9 @@ function setupFiltersUI() {
   // Exportar CSV (entradas que passam pelos filtros ativos)
   document.getElementById('export-csv').addEventListener('click', exportFilteredAsCSV);
 
+  // Copiar link da vista actual (URL completa com hash de estado)
+  document.getElementById('copy-link').addEventListener('click', copyShareLink);
+
   // Painel de estatísticas
   document.getElementById('stats-btn').addEventListener('click', openStatsPanel);
   document.getElementById('stats-close').addEventListener('click', closeStatsPanel);
@@ -1329,6 +1341,35 @@ const CSV_COLUMNS = [
   'fator_risco_wwa', 'justificativa', 'observacoes', 'verificado',
   'adm1_ne_id', 'lat', 'lon',
 ];
+
+async function copyShareLink() {
+  const btn = document.getElementById('copy-link');
+  const url = location.href;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    ok = true;
+  } catch {
+    // Fallback para browsers/contextos sem permissão de clipboard
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch {}
+    ta.remove();
+  }
+  if (ok) {
+    const original = btn.textContent;
+    btn.textContent = t('btn-copy-ok');
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.classList.remove('copied');
+    }, 1500);
+  }
+}
 
 function exportFilteredAsCSV() {
   const rows = getFilteredEntries();

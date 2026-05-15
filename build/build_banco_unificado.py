@@ -986,6 +986,31 @@ def build():
 
     all_rows = cedamia_rows + almost_rows + wwa_rows + manual_rows
 
+    # ── Correções de erros nos dados de origem ────────────────────────────────
+    # Typos no CEDAMIA, ISOs trocados no Excel almost-CED.
+    # Cada entrada é (entidade_original, campo_alterado, valor_novo).
+    corrections = [
+        ("Steyregg Municpal Council",        "entidade", "Steyregg Municipal Council"),
+        ("Wasserburg am Bodensee Municpal Council", "entidade",
+                                              "Wasserburg am Bodensee Municipal Council"),
+        ("Essex Count Council",              "entidade", "Essex County Council"),
+        ("Darmstad",                         "entidade", "Darmstadt"),
+        # ISOs trocados no Excel almost-CED — Bettembourg é em Luxemburgo, não Marshall.
+        # Marshall Islands é o país, não pertence às Filipinas.
+        ("Bettembourg (LU)",                 "iso_3",    "LUX"),
+        ("Bettembourg (LU)",                 "pais",     "Luxemburgo"),
+        ("Marshall Islands",                 "iso_3",    "MHL"),
+        ("Marshall Islands",                 "pais",     "Ilhas Marshall"),
+    ]
+    applied = 0
+    for entidade_match, field, new_value in corrections:
+        for row in all_rows:
+            if row.get("entidade") == entidade_match:
+                row[field] = new_value
+                applied += 1
+    if applied:
+        print(f"\n    Correções aplicadas: {applied}")
+
     df = pd.DataFrame(all_rows, columns=SCHEMA_COLS)
 
     # ── Deduplicação por (iso_3 + entidade + ano + fonte) ────────────────────
