@@ -180,7 +180,7 @@ const LAYER_MAP = {
 
 let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
-let selectedScope = null; // { iso, ne_id?, admin2_name?, displayName }
+let selectedScope = null; // { iso, ne_id?, region_name?, admin2_name?, displayName }
 
 const filters = {
   layers:   new Set(['ced-formal', 'wwa', 'almost-ced']), // camadas ativas
@@ -854,14 +854,17 @@ function onPointClick(feat) {
   if (!iso) return;
   const entry = banco.find(b => b.iso_3 === iso);
   const paisName = entry?.pais || iso;
+  const region = props.regiao || '';
   // adm1_ne_id pode vir como número ou string (depende do MapLibre serialization)
   const ne_id_raw = props.adm1_ne_id;
   const ne_id = (ne_id_raw === null || ne_id_raw === '' || ne_id_raw === undefined)
     ? null : Number(ne_id_raw);
   if (ne_id && !Number.isNaN(ne_id)) {
-    const region = props.regiao || '';
     const displayName = region ? `${paisName} › ${region}` : paisName;
     selectScope({ iso, ne_id }, displayName);
+  } else if (region) {
+    // Fallback: sem ne_id mas com nome de região — escopo por regiao+iso
+    selectScope({ iso, region_name: region }, `${paisName} › ${region}`);
   } else {
     selectScope({ iso }, paisName);
   }
@@ -907,11 +910,15 @@ function hideInfoPanel() {
   writeStateToHash();
 }
 
-/** Filtra entradas do banco pelo escopo selecionado (cascata iso → ne_id → admin2). */
+/** Filtra entradas do banco pelo escopo selecionado (cascata iso → ne_id/region → admin2). */
 function filteredForScope(scope) {
   let xs = banco.filter(e => e.iso_3 === scope.iso);
   if (scope.ne_id != null) {
     xs = xs.filter(e => e.adm1_ne_id === scope.ne_id);
+  } else if (scope.region_name) {
+    // Fallback para pontos sem join admin-1: filtra pelo nome textual da região
+    const target = normName(scope.region_name);
+    xs = xs.filter(e => normName(e.regiao || '') === target);
   }
   if (scope.admin2_name) {
     const target = normName(scope.admin2_name);
@@ -1506,6 +1513,8 @@ function readStateFromHash() {
     state.scope = { iso: iso.toUpperCase() };
     const ne = p.get('ne');
     if (ne && !Number.isNaN(Number(ne))) state.scope.ne_id = Number(ne);
+    const reg = p.get('reg');
+    if (reg) state.scope.region_name = reg;
     const m2 = p.get('m2');
     if (m2) state.scope.admin2_name = m2;
   }
@@ -1561,6 +1570,11 @@ function restoreScopeFromHash(scope) {
     const sub = banco.find(b => b.iso_3 === scope.iso && b.adm1_ne_id === scope.ne_id);
     const display = sub?.regiao ? `${paisName} › ${sub.regiao}` : paisName;
     selectScope({ iso: scope.iso, ne_id: scope.ne_id }, display);
+  } else if (scope.region_name) {
+    selectScope(
+      { iso: scope.iso, region_name: scope.region_name },
+      `${paisName} › ${scope.region_name}`,
+    );
   } else {
     selectScope({ iso: scope.iso }, paisName);
   }
@@ -1589,8 +1603,9 @@ function writeStateToHash() {
 
   if (selectedScope?.iso) {
     p.set('iso', selectedScope.iso);
-    if (selectedScope.ne_id != null) p.set('ne', String(selectedScope.ne_id));
-    if (selectedScope.admin2_name)   p.set('m2', selectedScope.admin2_name);
+    if (selectedScope.ne_id != null)    p.set('ne', String(selectedScope.ne_id));
+    if (selectedScope.region_name)      p.set('reg', selectedScope.region_name);
+    if (selectedScope.admin2_name)      p.set('m2', selectedScope.admin2_name);
   }
 
   const c = map.getCenter();
