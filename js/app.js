@@ -1196,23 +1196,26 @@ function setupFiltersUI() {
 
   // Toggle sidebar (funciona em desktop e mobile via classe .collapsed)
   const sidebar = document.getElementById('sidebar');
+  const appEl   = document.getElementById('app');
   const openBtn = document.getElementById('sidebar-open');
   const isMobile = () => matchMedia('(max-width: 640px)').matches;
 
   function closeSidebar() {
     sidebar.classList.add('collapsed');
+    appEl.classList.add('sidebar-collapsed');
     openBtn.hidden = false;
   }
   function openSidebar() {
     sidebar.classList.remove('collapsed');
+    appEl.classList.remove('sidebar-collapsed');
     openBtn.hidden = true;
   }
 
   document.getElementById('sidebar-toggle').addEventListener('click', closeSidebar);
   openBtn.addEventListener('click', openSidebar);
 
-  // No mobile, começar com sidebar recolhida para não tapar o mapa
-  if (isMobile()) closeSidebar();
+  // Começar com sidebar recolhida (desktop e mobile)
+  closeSidebar();
 
   // Fechar sidebar ao clicar no mapa (mobile) — UX padrão de drawer
   document.getElementById('map').addEventListener('click', () => {
