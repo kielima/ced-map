@@ -242,6 +242,60 @@ async function loadBanco() {
 
 // ── MapLibre ──────────────────────────────────────────────────────────────────
 
+class MapShareControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group map-share-ctrl';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.title = 'Compartilhar link';
+    btn.setAttribute('aria-label', 'Compartilhar link');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+    </svg>`;
+
+    btn.addEventListener('click', () => shareMapLink(btn));
+    this._container.appendChild(btn);
+    return this._container;
+  }
+  onRemove() {
+    this._container.parentNode?.removeChild(this._container);
+    this._map = undefined;
+  }
+}
+
+async function shareMapLink(btn) {
+  const url = location.href;
+  const shareData = { title: 'CED Map — Declarações de Emergência Climática', url };
+
+  if (navigator.share && navigator.canShare?.(shareData)) {
+    try { await navigator.share(shareData); return; } catch {}
+  }
+
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    ok = true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch {}
+    ta.remove();
+  }
+
+  if (ok) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
+    btn.classList.add('share-copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('share-copied'); }, 2000);
+  }
+}
+
 function setupMap(hashState) {
   const view = hashState?.view;
   map = new maplibregl.Map({
@@ -259,6 +313,7 @@ function setupMap(hashState) {
 
   map.touchZoomRotate.disableRotation();
 
+  map.addControl(new MapShareControl(), 'top-right');
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
