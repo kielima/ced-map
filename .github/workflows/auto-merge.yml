@@ -1,3 +1,4 @@
+# Auto-merge workflow — squash-merges non-draft PRs when CI passes
 name: Auto-merge
 
 on:
