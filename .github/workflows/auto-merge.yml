@@ -1,0 +1,57 @@
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # Only act when CI passed and was triggered by a pull_request event
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Find and squash-merge eligible PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const headBranch = context.payload.workflow_run.head_branch;
+            const headSha   = context.payload.workflow_run.head_sha;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner, repo,
+              state: 'open',
+              head: `${owner}:${headBranch}`,
+            });
+
+            // Skip draft PRs; verify the SHA matches so we don't merge a stale run
+            const eligible = prs.filter(pr => !pr.draft && pr.head.sha === headSha);
+
+            if (eligible.length === 0) {
+              core.info('No eligible non-draft PR found for this run — skipping.');
+              return;
+            }
+
+            for (const pr of eligible) {
+              core.info(`Squash-merging PR #${pr.number}: ${pr.title}`);
+              try {
+                await github.rest.pulls.merge({
+                  owner, repo,
+                  pull_number: pr.number,
+                  merge_method: 'squash',
+                  commit_title: `${pr.title} (#${pr.number})`,
+                  commit_message: pr.body ?? '',
+                });
+                core.info(`PR #${pr.number} merged successfully.`);
+              } catch (err) {
+                core.setFailed(`Failed to merge PR #${pr.number}: ${err.message}`);
+              }
+            }
