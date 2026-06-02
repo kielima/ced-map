@@ -1852,6 +1852,10 @@ function writeStateToHash() {
   if (location.hash !== (p.toString() ? `#${p}` : '')) {
     history.replaceState(null, '', next);
   }
+
+  // Ponte deck-sync: qualquer mudança de estado (view, camadas, nível, ano,
+  // escopo/popup) passa por aqui, então este é o ponto único de anúncio.
+  deckSyncAnnounce();
 }
 
 /** Reage a hashchange externo (paste de URL, back/forward com pushState futuro). */
@@ -1875,6 +1879,112 @@ function onHashChange() {
     hideInfoPanel();
   }
 }
+
+// ── Ponte deck-sync (sincronização entre dispositivos via apresentação) ───────
+//
+// Quando este app roda embutido por <iframe> dentro da apresentação
+// (kielima/apresentacoes → dissertacao/index.html), a ponte genérica do
+// deck-sync.js retransmite o estado do mapa entre todos os dispositivos
+// pareados na mesma sala MQTT. Aqui falamos o protocolo dessa ponte.
+//
+// Contrato (campo __deckSync:1, channel:'ced-map'):
+//   app  → host : { __deckSync:1, from:'app',  channel:'ced-map', payload:<estado> }
+//   host → app  : { __deckSync:1, from:'host', type:'apply', channel:'ced-map', payload, remote:true }
+//   host → app  : { __deckSync:1, from:'host', type:'request' }   (um device entrou)
+//
+// Fora do iframe (standalone) `parent === window`: o postMessage volta para
+// nós mesmos, mas o listener ignora `from:'app'`, então não há loop nem efeito.
+
+const DECK_SYNC_CHANNEL = 'ced-map';
+
+let deckSyncApplying = false;   // guard anti-loop enquanto aplicamos estado remoto
+let deckSyncTimer    = null;    // debounce de announce (pan/zoom contínuos)
+let deckSyncRelease  = null;    // timer que libera o guard após a vista assentar
+
+/** Lê a "vista" atual como objeto serializável (espelha writeStateToHash). */
+function deckSyncReadState() {
+  if (!map) return null;
+  const c = map.getCenter();
+  const searchInput = document.getElementById('pais-search');
+  const state = {
+    view:   { lng: +c.lng.toFixed(5), lat: +c.lat.toFixed(5), z: +map.getZoom().toFixed(2) },
+    layers: [...filters.layers].sort(),
+    niveis: [...filters.niveis].sort(),
+    ano_min: filters.ano_min,
+    ano_max: filters.ano_max,
+    search: searchInput ? searchInput.value : '',
+  };
+  if (selectedScope?.iso) {
+    state.scope = { iso: selectedScope.iso };
+    if (selectedScope.ne_id != null)   state.scope.ne_id = selectedScope.ne_id;
+    if (selectedScope.region_name)     state.scope.region_name = selectedScope.region_name;
+    if (selectedScope.admin2_name)     state.scope.admin2_name = selectedScope.admin2_name;
+  }
+  return state;
+}
+
+/** Aplica um estado vindo de outra tela, sem reanunciar (guard `applying`). */
+function deckSyncApplyState(s) {
+  if (!s || !map) return;
+  deckSyncApplying = true;
+  clearTimeout(deckSyncRelease);
+  try {
+    // Filtros: camadas, nível, slider temporal.
+    if (Array.isArray(s.layers)) filters.layers = new Set(s.layers);
+    if (Array.isArray(s.niveis)) filters.niveis = new Set(s.niveis);
+    if (Number.isFinite(s.ano_min)) filters.ano_min = s.ano_min;
+    if (Number.isFinite(s.ano_max)) filters.ano_max = s.ano_max;
+    syncUIFromFilters();
+    applyFilters();
+
+    // Texto da busca (campo transitório; só espelha o que o outro digitou).
+    const searchInput = document.getElementById('pais-search');
+    if (searchInput && typeof s.search === 'string' && searchInput.value !== s.search) {
+      searchInput.value = s.search;
+    }
+
+    // Escopo / popup (info-panel da jurisdição selecionada).
+    if (s.scope?.iso) {
+      restoreScopeFromHash(s.scope);
+    } else if (selectedScope) {
+      hideInfoPanel();
+    }
+
+    // Vista (center/zoom). easeTo dispara 'moveend' de forma assíncrona;
+    // por isso o guard só é liberado por timer abaixo, após a animação.
+    if (s.view && Number.isFinite(s.view.z)) {
+      map.easeTo({ center: [s.view.lng, s.view.lat], zoom: s.view.z, duration: 300 });
+    }
+  } finally {
+    // Libera o guard depois da animação assentar (duration 300 < 400).
+    deckSyncRelease = setTimeout(() => { deckSyncApplying = false; }, 400);
+  }
+}
+
+/** Anuncia o estado atual ao host, com leve debounce para pan/zoom contínuos. */
+function deckSyncAnnounce() {
+  if (deckSyncApplying) return;
+  clearTimeout(deckSyncTimer);
+  deckSyncTimer = setTimeout(() => {
+    const payload = deckSyncReadState();
+    if (!payload) return;
+    parent.postMessage({ __deckSync: 1, from: 'app', channel: DECK_SYNC_CHANNEL, payload }, '*');
+  }, 120);
+}
+
+/** Recebe comandos do host (apply / request). */
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.__deckSync !== 1 || d.from !== 'host') return;
+  if (d.type === 'apply' && d.channel === DECK_SYNC_CHANNEL) {
+    deckSyncApplyState(d.payload);
+  } else if (d.type === 'request') {
+    deckSyncAnnounce();   // um novo dispositivo entrou: reanuncie o estado atual
+  }
+});
+
+// Busca: digitar no campo não passa por writeStateToHash, então anuncia aqui.
+document.getElementById('pais-search')?.addEventListener('input', deckSyncAnnounce);
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 init();
