@@ -16,6 +16,8 @@ const LANG = {
     'pill-nacional':        'Nacional',
     'pill-estadual':        'Estadual',
     'pill-municipal':       'Municipal',
+    'sec-exibicao':         'Exibição',
+    'pill-labels':          '🏷️ Nomes',
     'sec-periodo':          'Período',
     'range-hint':           'Arraste para filtrar por ano de declaração',
     'sec-busca':            'Busca',
@@ -78,6 +80,8 @@ const LANG = {
     'pill-nacional':        'National',
     'pill-estadual':        'State/Province',
     'pill-municipal':       'Municipal',
+    'sec-exibicao':         'Display',
+    'pill-labels':          '🏷️ Names',
     'sec-periodo':          'Period',
     'range-hint':           'Drag to filter by declaration year',
     'sec-busca':            'Search',
@@ -223,6 +227,10 @@ function mapProjectionType() {
   return viewMode === 'mercator' ? 'mercator' : 'globe';
 }
 let countriesGeoData = null; // cache do GeoJSON de países, compartilhado com o modo Robinson
+
+// Mostrar/ocultar rótulos de nome (países/cidades no globe/mercator; nomes de
+// país desenhados no Robinson), válido para os 3 modos de projeção.
+let showLabels = localStorage.getItem('ced-labels') !== '0';
 
 // Modo curador: ativado por ?admin=1 ou #admin no hash. Mostra botões de
 // "verificar" e filtra pelas não-verificadas no painel.
@@ -1316,8 +1324,52 @@ function setupFiltersUI() {
   // ── Bottom-sheet drag ────────────────────────────────────────────────────
   initBottomSheetDrag();
 
-  // ── Toggle de projeção (Globe 3D ↔ Robinson) ────────────────────────────
+  // ── Toggle de projeção (Globe 3D ↔ Robinson ↔ Mercator) ─────────────────
   setupProjectionToggle();
+
+  // ── Toggle de rótulos de nome (vale para os 3 modos de projeção) ────────
+  setupLabelsToggle();
+}
+
+function setupLabelsToggle() {
+  const btn = document.getElementById('toggle-labels');
+  if (!btn) return;
+  btn.classList.toggle('active', showLabels);
+  btn.setAttribute('aria-pressed', showLabels ? 'true' : 'false');
+  btn.addEventListener('click', () => {
+    showLabels = !showLabels;
+    localStorage.setItem('ced-labels', showLabels ? '1' : '0');
+    btn.classList.toggle('active', showLabels);
+    btn.setAttribute('aria-pressed', showLabels ? 'true' : 'false');
+    applyLabelVisibility();
+  });
+  applyLabelVisibility();
+}
+
+/** Alterna a visibilidade dos rótulos de nome nos 3 modos (globe/mercator via MapLibre, Robinson via D3). */
+function applyLabelVisibility() {
+  applyMapLibreLabelVisibility();
+  applyRobinsonLabelVisibility();
+}
+
+/** Alterna só os layers de TEXTO do estilo base (nomes de país/cidade/rua) — ícones de POI ficam intactos. */
+function applyMapLibreLabelVisibility() {
+  if (!map || !map.isStyleLoaded()) return;
+  const layers = map.getStyle()?.layers ?? [];
+  for (const layer of layers) {
+    if (layer.type !== 'symbol') continue;
+    if (!layer.layout?.['text-field']) continue; // ícone-only (ex.: POI) — não é "nome"
+    try {
+      map.setLayoutProperty(layer.id, 'visibility', showLabels ? 'visible' : 'none');
+    } catch (err) {
+      // Layer pode não aceitar a propriedade — ignora silenciosamente
+    }
+  }
+}
+
+function applyRobinsonLabelVisibility() {
+  if (!robinson) return;
+  robinson.g.select('.robinson-labels').style('display', showLabels ? null : 'none');
 }
 
 function initBottomSheetDrag() {
@@ -2106,6 +2158,7 @@ function initRobinson() {
   const g = svg.append('g').attr('class', 'robinson-root');
   g.append('g').attr('class', 'robinson-countries');
   g.append('g').attr('class', 'robinson-points');
+  g.append('g').attr('class', 'robinson-labels');
 
   const zoom = d3.zoom()
     .scaleExtent([1, 10])
@@ -2212,6 +2265,29 @@ function renderRobinson() {
     .attr('fill', d => COLORS[d.properties.colorKey] || COLORS.cinza);
 
   points.exit().remove();
+
+  // Rótulos de nome de país — mesmo toggle usado pelos modos globe/mercator (showLabels).
+  // Países muito pequenos na projeção (path.area) ficam sem rótulo para não poluir o mapa.
+  const labelData = countriesGeoData.features.filter(d => path.area(d) > 220);
+  const labels = g.select('.robinson-labels')
+    .selectAll('text.robinson-label')
+    .data(labelData, d => d.properties.ADM0_A3);
+
+  labels.enter()
+    .append('text')
+    .attr('class', 'robinson-label')
+    .merge(labels)
+    .each(function (d) {
+      const c = path.centroid(d);
+      d3.select(this)
+        .style('display', Number.isFinite(c[0]) ? null : 'none')
+        .attr('transform', Number.isFinite(c[0]) ? `translate(${c[0]},${c[1]})` : null);
+    })
+    .text(d => d.properties.NAME_PT || d.properties.NAME_LONG || d.properties.NAME || '');
+
+  labels.exit().remove();
+
+  applyRobinsonLabelVisibility();
 }
 
 function showRobinsonTooltip(ev, d) {
