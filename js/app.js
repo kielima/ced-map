@@ -64,8 +64,9 @@ const LANG = {
     'dark-on':              '🌙',
     'dark-off':             '☀️',
     'lang-switch':          'EN',
-    'proj-toggle-robinson': '🗺️ Robinson',
-    'proj-toggle-globe':    '🌐 Globo',
+    'proj-mode-globe':      '🌐 Globo',
+    'proj-mode-mercator':   '🧭 Mercator',
+    'proj-mode-robinson':   '🗺️ Robinson',
   },
   en: {
     subtitle:               'Global Climate Emergencies',
@@ -125,8 +126,9 @@ const LANG = {
     'dark-on':              '🌙',
     'dark-off':             '☀️',
     'lang-switch':          'PT',
-    'proj-toggle-robinson': '🗺️ Robinson',
-    'proj-toggle-globe':    '🌐 Globe',
+    'proj-mode-globe':      '🌐 Globe',
+    'proj-mode-mercator':   '🧭 Mercator',
+    'proj-mode-robinson':   '🗺️ Robinson',
   },
 };
 
@@ -208,10 +210,18 @@ let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
 let selectedScope = null; // { iso, ne_id?, region_name?, admin2_name?, displayName }
 
-// Modo de projeção: 'globe' (MapLibre, 3D, padrão) ou 'robinson' (D3, projeção plana real).
-// MapLibre GL JS não suporta Robinson nativamente (só mercator/globe), então o modo
-// Robinson é um mapa D3 paralelo (ver seção "Projeção Robinson" mais abaixo).
-let viewMode = localStorage.getItem('ced-viewmode') === 'robinson' ? 'robinson' : 'globe';
+// Modo de projeção: 'globe' (MapLibre, 3D, padrão) / 'mercator' (MapLibre, plano) /
+// 'robinson' (D3, projeção plana real — o MapLibre não suporta Robinson nativamente,
+// só mercator/globe, então esse modo é um mapa D3 paralelo; ver seção "Projeção
+// Robinson" mais abaixo). O botão de alternância cicla entre os três.
+const VIEW_MODES = ['globe', 'robinson', 'mercator'];
+const storedViewMode = localStorage.getItem('ced-viewmode');
+let viewMode = VIEW_MODES.includes(storedViewMode) ? storedViewMode : 'globe';
+
+/** Projeção que o MapLibre (modos globe/mercator) deve usar para o viewMode atual. */
+function mapProjectionType() {
+  return viewMode === 'mercator' ? 'mercator' : 'globe';
+}
 let countriesGeoData = null; // cache do GeoJSON de países, compartilhado com o modo Robinson
 
 // Modo curador: ativado por ?admin=1 ou #admin no hash. Mostra botões de
@@ -321,7 +331,7 @@ function setupMap(hashState) {
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
-    projection: { type: 'globe' },
+    projection: { type: mapProjectionType() },
   });
 
   map.touchZoomRotate.disableRotation();
@@ -358,9 +368,9 @@ function recolorWaterToWhite() {
 async function onMapLoad(hashState) {  // async: aguarda loadAdmin1Layer()
   // O estilo liberty do OpenFreeMap carrega com projection:mercator por padrão
   // e isso sobrescreve a opção `projection` passada no construtor do Map — por
-  // isso o globe só "gruda" se for reforçado aqui, depois que o estilo carregou
+  // isso a projeção só "gruda" se for reforçada aqui, depois que o estilo carregou
   // (mesmo padrão documentado pelo MapLibre: setProjection após 'load'/'style.load').
-  map.setProjection({ type: 'globe' });
+  map.setProjection({ type: mapProjectionType() });
 
   // Mar/oceano em branco (override do estilo liberty do OpenFreeMap)
   recolorWaterToWhite();
@@ -2023,15 +2033,17 @@ document.getElementById('pais-search')?.addEventListener('input', deckSyncAnnoun
 // especial embutido no motor). Não há suporte a projeções planas alternativas
 // como Robinson. Para oferecer uma Robinson de verdade, desenhamos um mapa
 // paralelo com D3 (d3-geo + d3-geo-projection) sobre os mesmos GeoJSONs/dados
-// já carregados, e alternamos a visibilidade entre #map (MapLibre) e
-// #map-robinson (D3) via botão. O painel de informação, filtros e escopo
-// selecionado são compartilhados entre os dois modos.
+// já carregados, e alternamos a visibilidade entre #map (MapLibre, para os
+// modos globe/mercator) e #map-robinson (D3) via um botão que cicla entre os
+// três modos (VIEW_MODES). O painel de informação, filtros e escopo
+// selecionado são compartilhados entre todos eles.
 //
 // Limitação assumida: o modo Robinson desenha países (admin-0) e pontos
-// (jurisdições geocodificadas), como o modo Globe em zoom baixo/médio — não
-// replica os polígonos admin-1/admin-2 (que exigiriam reimplementar todo o
-// drill-down poligonal em D3). Clicar num país ou ponto abre o mesmo painel
-// de informação, com drill-down por estado/município via clique em pontos.
+// (jurisdições geocodificadas), como os modos globe/mercator em zoom
+// baixo/médio — não replica os polígonos admin-1/admin-2 (que exigiriam
+// reimplementar todo o drill-down poligonal em D3). Clicar num país ou ponto
+// abre o mesmo painel de informação, com drill-down por estado/município via
+// clique em pontos.
 
 let robinson = null;           // { svg, g, projection, path, width, height }
 let robinsonSelectedIso = null;
@@ -2041,7 +2053,8 @@ function setupProjectionToggle() {
   if (!btn) return;
   updateProjToggleLabel(btn);
   btn.addEventListener('click', () => {
-    viewMode = viewMode === 'globe' ? 'robinson' : 'globe';
+    const next = VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length];
+    viewMode = next;
     localStorage.setItem('ced-viewmode', viewMode);
     updateProjToggleLabel(btn);
     applyViewMode();
@@ -2049,9 +2062,9 @@ function setupProjectionToggle() {
   applyViewMode();
 }
 
-/** O botão mostra a ação (para onde alternar), não o modo atual. */
+/** O botão mostra o modo atual; clicar cicla para o próximo em VIEW_MODES. */
 function updateProjToggleLabel(btn) {
-  btn.textContent = viewMode === 'globe' ? t('proj-toggle-robinson') : t('proj-toggle-globe');
+  btn.textContent = t(`proj-mode-${viewMode}`);
 }
 
 function applyViewMode() {
@@ -2069,7 +2082,10 @@ function applyViewMode() {
     robEl.classList.add('hidden');
     mapEl.classList.remove('hidden');
     hideRobinsonTooltip();
-    if (map) map.resize(); // canvas pode ter ficado com tamanho desatualizado enquanto oculto
+    if (map) {
+      map.setProjection({ type: mapProjectionType() });
+      map.resize(); // canvas pode ter ficado com tamanho desatualizado enquanto oculto
+    }
   }
 }
 
