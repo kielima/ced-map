@@ -64,6 +64,8 @@ const LANG = {
     'dark-on':              '🌙',
     'dark-off':             '☀️',
     'lang-switch':          'EN',
+    'proj-toggle-robinson': '🗺️ Robinson',
+    'proj-toggle-globe':    '🌐 Globo',
   },
   en: {
     subtitle:               'Global Climate Emergencies',
@@ -123,6 +125,8 @@ const LANG = {
     'dark-on':              '🌙',
     'dark-off':             '☀️',
     'lang-switch':          'PT',
+    'proj-toggle-robinson': '🗺️ Robinson',
+    'proj-toggle-globe':    '🌐 Globe',
   },
 };
 
@@ -144,6 +148,8 @@ function applyLang() {
   });
   const langBtn = document.getElementById('lang-toggle');
   if (langBtn) langBtn.textContent = t('lang-switch');
+  const projBtn = document.getElementById('proj-toggle');
+  if (projBtn) updateProjToggleLabel(projBtn);
   // Atualizar gráficos se abertos
   if (statsCharts.timeline) updateCharts();
 }
@@ -201,6 +207,12 @@ const LAYER_MAP = {
 let banco = [];           // todas as entradas do banco
 let map   = null;         // instância MapLibre
 let selectedScope = null; // { iso, ne_id?, region_name?, admin2_name?, displayName }
+
+// Modo de projeção: 'globe' (MapLibre, 3D, padrão) ou 'robinson' (D3, projeção plana real).
+// MapLibre GL JS não suporta Robinson nativamente (só mercator/globe), então o modo
+// Robinson é um mapa D3 paralelo (ver seção "Projeção Robinson" mais abaixo).
+let viewMode = localStorage.getItem('ced-viewmode') === 'robinson' ? 'robinson' : 'globe';
+let countriesGeoData = null; // cache do GeoJSON de países, compartilhado com o modo Robinson
 
 // Modo curador: ativado por ?admin=1 ou #admin no hash. Mostra botões de
 // "verificar" e filtra pelas não-verificadas no painel.
@@ -309,6 +321,7 @@ function setupMap(hashState) {
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
+    projection: { type: 'globe' },
   });
 
   map.touchZoomRotate.disableRotation();
@@ -352,6 +365,7 @@ async function onMapLoad(hashState) {  // async: aguarda loadAdmin1Layer()
     const r = await fetch('data/ne_110m_countries.geojson');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     countriesGeo = await r.json();
+    countriesGeoData = countriesGeo;
   } catch (err) {
     console.warn('GeoJSON de países não encontrado:', err.message);
     console.warn('Execute "python setup.py" para baixar os dados geográficos.');
@@ -965,6 +979,8 @@ function selectScope(scope, displayName) {
   if (scope.ne_id != null && map.getSource('admin1')) {
     map.setFeatureState({ source: 'admin1', id: scope.ne_id }, { selected: true });
   }
+  robinsonSelectedIso = scope.iso || null;
+  if (viewMode === 'robinson' && robinson) renderRobinson();
   showInfoPanel(displayName);
   writeStateToHash();
 }
@@ -978,6 +994,8 @@ function clearHighlights() {
   if (selectedScope.ne_id != null && map.getSource('admin1')) {
     map.setFeatureState({ source: 'admin1', id: selectedScope.ne_id }, { selected: false });
   }
+  robinsonSelectedIso = null;
+  if (viewMode === 'robinson' && robinson) renderRobinson();
 }
 
 // ── Painel de informação ──────────────────────────────────────────────────────
@@ -1281,6 +1299,9 @@ function setupFiltersUI() {
 
   // ── Bottom-sheet drag ────────────────────────────────────────────────────
   initBottomSheetDrag();
+
+  // ── Toggle de projeção (Globe 3D ↔ Robinson) ────────────────────────────
+  setupProjectionToggle();
 }
 
 function initBottomSheetDrag() {
@@ -1414,6 +1435,9 @@ function applyFilters() {
   if (statsCharts.timeline && !document.getElementById('stats-panel').classList.contains('hidden')) {
     updateCharts();
   }
+
+  // Atualizar mapa Robinson (D3), se for o modo ativo no momento
+  if (viewMode === 'robinson' && robinson) renderRobinson();
 
   writeStateToHash();
 }
@@ -1985,6 +2009,213 @@ window.addEventListener('message', e => {
 
 // Busca: digitar no campo não passa por writeStateToHash, então anuncia aqui.
 document.getElementById('pais-search')?.addEventListener('input', deckSyncAnnounce);
+
+// ── Projeção Robinson (D3) ──────────────────────────────────────────────────
+//
+// MapLibre GL JS só suporta nativamente as projeções 'mercator' e 'globe'
+// (renderiza vector tiles em espaço Web Mercator; globe é um segundo modo
+// especial embutido no motor). Não há suporte a projeções planas alternativas
+// como Robinson. Para oferecer uma Robinson de verdade, desenhamos um mapa
+// paralelo com D3 (d3-geo + d3-geo-projection) sobre os mesmos GeoJSONs/dados
+// já carregados, e alternamos a visibilidade entre #map (MapLibre) e
+// #map-robinson (D3) via botão. O painel de informação, filtros e escopo
+// selecionado são compartilhados entre os dois modos.
+//
+// Limitação assumida: o modo Robinson desenha países (admin-0) e pontos
+// (jurisdições geocodificadas), como o modo Globe em zoom baixo/médio — não
+// replica os polígonos admin-1/admin-2 (que exigiriam reimplementar todo o
+// drill-down poligonal em D3). Clicar num país ou ponto abre o mesmo painel
+// de informação, com drill-down por estado/município via clique em pontos.
+
+let robinson = null;           // { svg, g, projection, path, width, height }
+let robinsonSelectedIso = null;
+
+function setupProjectionToggle() {
+  const btn = document.getElementById('proj-toggle');
+  if (!btn) return;
+  updateProjToggleLabel(btn);
+  btn.addEventListener('click', () => {
+    viewMode = viewMode === 'globe' ? 'robinson' : 'globe';
+    localStorage.setItem('ced-viewmode', viewMode);
+    updateProjToggleLabel(btn);
+    applyViewMode();
+  });
+  applyViewMode();
+}
+
+/** O botão mostra a ação (para onde alternar), não o modo atual. */
+function updateProjToggleLabel(btn) {
+  btn.textContent = viewMode === 'globe' ? t('proj-toggle-robinson') : t('proj-toggle-globe');
+}
+
+function applyViewMode() {
+  const mapEl = document.getElementById('map');
+  const robEl = document.getElementById('map-robinson');
+  if (!mapEl || !robEl) return;
+
+  if (viewMode === 'robinson') {
+    mapEl.classList.add('hidden');
+    robEl.classList.remove('hidden');
+    if (!countriesGeoData) return; // dados ainda não carregados; nada a desenhar
+    if (!robinson) initRobinson();
+    resizeRobinson(); // mede o container agora visível e (re)desenha
+  } else {
+    robEl.classList.add('hidden');
+    mapEl.classList.remove('hidden');
+    hideRobinsonTooltip();
+    if (map) map.resize(); // canvas pode ter ficado com tamanho desatualizado enquanto oculto
+  }
+}
+
+function initRobinson() {
+  const container = document.getElementById('map-robinson');
+  const width  = container.clientWidth  || 800;
+  const height = container.clientHeight || 600;
+
+  const projection = d3.geoRobinson();
+  const path = d3.geoPath(projection);
+
+  const svg = d3.select(container).append('svg')
+    .attr('width', '100%')
+    .attr('height', '100%');
+
+  svg.append('path').attr('class', 'robinson-sphere');
+
+  const g = svg.append('g').attr('class', 'robinson-root');
+  g.append('g').attr('class', 'robinson-countries');
+  g.append('g').attr('class', 'robinson-points');
+
+  const zoom = d3.zoom()
+    .scaleExtent([1, 10])
+    .on('zoom', ev => g.attr('transform', ev.transform));
+  svg.call(zoom);
+
+  robinson = { svg, g, projection, path, zoom, width, height };
+
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => { if (viewMode === 'robinson') resizeRobinson(); }).observe(container);
+  } else {
+    window.addEventListener('resize', () => { if (viewMode === 'robinson') resizeRobinson(); });
+  }
+}
+
+function resizeRobinson() {
+  if (!robinson) return;
+  const container = document.getElementById('map-robinson');
+  const width  = container.clientWidth  || robinson.width;
+  const height = container.clientHeight || robinson.height;
+  robinson.width  = width;
+  robinson.height = height;
+
+  robinson.projection
+    .fitSize([Math.max(width - 24, 10), Math.max(height - 24, 10)], { type: 'Sphere' })
+    .translate([width / 2, height / 2]);
+
+  robinson.svg.attr('viewBox', `0 0 ${width} ${height}`);
+  robinson.svg.select('.robinson-sphere').attr('d', robinson.path({ type: 'Sphere' }));
+
+  // Limita o pan para não perder o globo de vista, com folga para explorar as bordas.
+  robinson.zoom.translateExtent([[-width * 0.5, -height * 0.5], [width * 1.5, height * 1.5]]);
+
+  // Reseta o zoom/pan acumulado (a projeção mudou de escala com o novo tamanho)
+  robinson.svg.call(robinson.zoom.transform, d3.zoomIdentity);
+
+  renderRobinson();
+}
+
+/** Mapa iso_3 → cor hex, a partir das entradas nacionais que passam pelos filtros ativos. */
+function robinsonCountryColors() {
+  const byIso = {};
+  for (const e of getFilteredEntries()) {
+    if (e.nivel !== 'nacional') continue;
+    if (!e.iso_3) continue;
+    (byIso[e.iso_3] ??= []).push(e);
+  }
+  const colors = {};
+  for (const [iso, entries] of Object.entries(byIso)) {
+    const color = topColor(entries);
+    if (color) colors[iso] = COLORS[color];
+  }
+  return colors;
+}
+
+function renderRobinson() {
+  if (!robinson || !countriesGeoData) return;
+  const { g, path, projection } = robinson;
+  const colorByIso = robinsonCountryColors();
+
+  // Países
+  const countries = g.select('.robinson-countries')
+    .selectAll('path.robinson-country')
+    .data(countriesGeoData.features, d => d.properties.ADM0_A3);
+
+  countries.enter()
+    .append('path')
+    .attr('class', 'robinson-country')
+    .style('cursor', 'pointer')
+    .on('click', (ev, d) => onCountryClick({ properties: d.properties }))
+    .merge(countries)
+    .attr('d', path)
+    .attr('fill', d => colorByIso[d.properties.ADM0_A3] || COLORS.cinza)
+    .attr('stroke', '#ffffff')
+    .attr('stroke-width', d => (d.properties.ADM0_A3 === robinsonSelectedIso ? 2 : 0.4))
+    .attr('stroke-opacity', d => (d.properties.ADM0_A3 === robinsonSelectedIso ? 1 : 0.6));
+
+  countries.exit().remove();
+
+  // Pontos (jurisdições sub-nacionais geocodificadas)
+  const fc = buildPointsGeoJSON();
+  const points = g.select('.robinson-points')
+    .selectAll('circle.robinson-point')
+    .data(fc.features);
+
+  points.enter()
+    .append('circle')
+    .attr('class', 'robinson-point')
+    .style('cursor', 'pointer')
+    .attr('r', 3)
+    .attr('stroke', '#ffffff')
+    .attr('stroke-width', 1)
+    .on('click', (ev, d) => { ev.stopPropagation(); onPointClick({ properties: d.properties }); })
+    .on('mouseenter', (ev, d) => showRobinsonTooltip(ev, d))
+    .on('mousemove', ev => positionRobinsonTooltip(ev))
+    .on('mouseleave', hideRobinsonTooltip)
+    .merge(points)
+    .each(function (d) {
+      const p = projection(d.geometry.coordinates);
+      d3.select(this)
+        .style('display', p ? null : 'none')
+        .attr('transform', p ? `translate(${p[0]},${p[1]})` : null);
+    })
+    .attr('fill', d => COLORS[d.properties.colorKey] || COLORS.cinza);
+
+  points.exit().remove();
+}
+
+function showRobinsonTooltip(ev, d) {
+  let el = document.getElementById('robinson-tooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'robinson-tooltip';
+    document.getElementById('map-wrap').appendChild(el);
+  }
+  const p = d.properties;
+  el.innerHTML = `<strong>${escHtml(p.entidade)}</strong>${p.regiao ? `<br><small>${escHtml(p.regiao)}</small>` : ''}${p.ano ? `<br><small>${p.ano}</small>` : ''}`;
+  el.style.display = 'block';
+  positionRobinsonTooltip(ev);
+}
+
+function positionRobinsonTooltip(ev) {
+  const el = document.getElementById('robinson-tooltip');
+  if (!el) return;
+  el.style.left = `${ev.clientX + 12}px`;
+  el.style.top  = `${ev.clientY + 12}px`;
+}
+
+function hideRobinsonTooltip() {
+  const el = document.getElementById('robinson-tooltip');
+  if (el) el.style.display = 'none';
+}
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 init();
