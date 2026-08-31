@@ -358,8 +358,8 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
 #map-legend {
   position: absolute;
   bottom: 28px;
-  /* Deslocada (não centralizada) para nunca colidir com #map-stats à esquerda */
-  left: 340px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 18px;
   color: #1a2332;
