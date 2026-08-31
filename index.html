@@ -21,8 +21,8 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
-  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=15" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="style.css?v=16" rel="stylesheet">
 </head>
 <body>
 
@@ -133,6 +133,10 @@
   <!-- ── Mapa principal ────────────────────────────────────────────────── -->
   <main id="map-wrap">
     <div id="map"></div>
+    <div id="map-robinson" class="hidden"></div>
+
+    <!-- Toggle de projeção: Globo 3D (MapLibre) ↔ Robinson (D3, projeção plana real) -->
+    <button id="proj-toggle" type="button" class="map-proj-toggle" title="Alternar projeção do mapa">🗺️ Robinson</button>
 
     <!-- Contador flutuante -->
     <div id="map-stats" aria-live="polite" aria-atomic="true">
@@ -215,8 +219,10 @@
   <p data-i18n="loading">Carregando dados…</p>
 </div>
 
-<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script type="module" src="js/app.js?v=25"></script>
+<script src="https://unpkg.com/d3@7"></script>
+<script src="https://unpkg.com/d3-geo-projection@4"></script>
+<script type="module" src="js/app.js?v=26"></script>
 </body>
 </html>
