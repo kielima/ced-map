@@ -14,16 +14,16 @@
   --pill-active:   #2a4a70;
   --pill-bg:       #1e2e42;
 
-  /* Cores do mapa (paleta monocromática vermelha — por fonte) */
+  /* Cores do mapa (por fonte da entrada) */
   --c-ced:         #8B0000;  /* vermelho escuro: CEDAMIA + MANUAL */
   --c-quase:       #D9534F;  /* vermelho médio:  ALMOST-CED */
-  --c-wwa:         #F2A6A6;  /* vermelho claro:  WWA */
+  --c-wwa:         #FFD485;  /* laranja:         WWA */
   --c-cinza:       #D9D9D9;
   /* Aliases retro-compat (algumas classes badge ainda usam estes) */
   --c-vermelho:    #8B0000;
   --c-laranja:     #8B0000;
   --c-amarelo:     #8B0000;
-  --c-azul:        #F2A6A6;
+  --c-azul:        #FFD485;
   --c-roxo:        #D9534F;
 }
 
@@ -333,74 +333,55 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
   max-width: 220px;
 }
 
-.map-proj-toggle {
-  position: absolute;
-  top: 96px;
-  right: 12px;
-  z-index: 6;
-  background: rgba(26, 35, 50, 0.92);
-  color: var(--text-main);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 12px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-}
-.map-proj-toggle:hover { background: var(--bg-sidebar); }
-
-/* Estatísticas flutuantes */
+/* Estatísticas flutuantes — sem moldura/fundo: texto escuro com halo branco
+   para continuar legível sobre qualquer cor do mapa por baixo. */
 #map-stats {
   position: absolute;
   bottom: 28px;
   left: 12px;
-  background: rgba(26, 35, 50, 0.88);
-  color: var(--text-main);
+  color: #1a2332;
   padding: 5px 10px;
-  border-radius: 6px;
   font-size: 0.75rem;
-  backdrop-filter: blur(4px);
+  font-weight: 600;
+  text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 0 8px #fff, 0 0 8px #fff;
   pointer-events: none;
   z-index: 5;
 }
-#map-stats .empty-hint { display: none; color: #ffb86b; }
-#map-stats.empty {
-  background: rgba(180, 80, 40, 0.92);
-  border: 1px solid #ffb86b;
-}
+#map-stats .empty-hint { display: none; color: #b34600; }
+#map-stats.empty { color: #b34600; }
 #map-stats.empty .empty-hint { display: inline; margin-left: 4px; }
 
 /* Legenda flutuante do mapa (rodapé) — vale para os 3 modos de projeção.
    Grupos de área (países/estados) usam retângulos ao estilo IBGE; grupos
-   de ponto (municípios) usam círculos, como os marcadores no mapa. */
+   de ponto (municípios) usam círculos, como os marcadores no mapa.
+   Sem moldura/fundo: texto escuro com halo branco, como as estatísticas. */
 #map-legend {
   position: absolute;
   bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Deslocada (não centralizada) para nunca colidir com #map-stats à esquerda */
+  left: 340px;
   display: flex;
   gap: 18px;
-  background: rgba(26, 35, 50, 0.88);
-  color: var(--text-main);
-  padding: 8px 16px;
-  border-radius: 8px;
+  color: #1a2332;
+  padding: 5px 6px;
   font-size: 0.72rem;
-  backdrop-filter: blur(4px);
+  font-weight: 600;
+  text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 0 8px #fff, 0 0 8px #fff;
   z-index: 5;
 }
 
 .legend-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .legend-group + .legend-group {
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 1px solid rgba(26, 35, 50, 0.35);
   padding-left: 18px;
 }
 
 .legend-group-title {
   font-size: 0.63rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #aebbcc;
+  color: #3a4a60;
   margin-right: 2px;
   white-space: nowrap;
 }
@@ -415,16 +396,16 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
 }
 .legend-item:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
 
-.legend-swatch { flex-shrink: 0; }
+.legend-swatch { flex-shrink: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9); }
 .legend-swatch--rect {
   width: 14px; height: 10px;
   border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(26, 35, 50, 0.45);
 }
 .legend-swatch--circle {
   width: 10px; height: 10px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(26, 35, 50, 0.45);
 }
 .legend-swatch[data-color="ced"]   { background: var(--c-ced); }
 .legend-swatch[data-color="quase"] { background: var(--c-quase); }
@@ -455,7 +436,7 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
   z-index: 30;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   #map-legend { display: none; }
 }
 
@@ -480,22 +461,23 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
   50%      { opacity: 0.55; }
 }
 
-/* Botão para reabrir sidebar */
+/* Botão para reabrir sidebar — sem moldura/fundo: ícone escuro com halo
+   branco, como as estatísticas e a legenda flutuantes do mapa. */
 #sidebar-open {
   position: absolute;
   top: 12px;
   left: 12px;
   z-index: 5;
-  background: rgba(26, 35, 50, 0.92);
-  color: var(--text-main);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 12px;
-  font-size: 0.82rem;
+  background: none;
+  border: none;
+  color: #1a2332;
+  padding: 6px 8px;
+  font-size: 1.3rem;
+  line-height: 1;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 0 8px #fff, 0 0 8px #fff;
 }
-#sidebar-open:hover { background: var(--bg-sidebar); }
+#sidebar-open:hover { opacity: 0.65; }
 
 /* ── Painel de informação (click) ─────────────────────────────────────────── */
 #info-panel {

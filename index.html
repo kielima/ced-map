@@ -22,7 +22,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=19" rel="stylesheet">
+  <link href="style.css?v=21" rel="stylesheet">
 </head>
 <body>
 
@@ -84,6 +84,16 @@
         </div>
       </section>
 
+      <!-- Projeção do mapa -->
+      <section class="filter-group">
+        <h2 data-i18n="sec-projecao">Projeção</h2>
+        <div class="pill-group" id="filter-projection" role="group" aria-labelledby="sec-projecao-label">
+          <button class="pill active" type="button" data-mode="globe" data-i18n="proj-mode-globe" aria-pressed="true">🌐 Globo</button>
+          <button class="pill" type="button" data-mode="robinson" data-i18n="proj-mode-robinson" aria-pressed="false">🗺️ Robinson</button>
+          <button class="pill" type="button" data-mode="mercator" data-i18n="proj-mode-mercator" aria-pressed="false">🧭 Mercator</button>
+        </div>
+      </section>
+
       <!-- Exibição (rótulos de nome, nos 3 modos de projeção) -->
       <section class="filter-group">
         <h2 data-i18n="sec-exibicao">Exibição</h2>
@@ -137,9 +147,6 @@
     <div id="map"></div>
     <div id="map-robinson" class="hidden"></div>
 
-    <!-- Toggle de projeção: Globo 3D (MapLibre) ↔ Robinson (D3, projeção plana real) -->
-    <button id="proj-toggle" type="button" class="map-proj-toggle" title="Alternar projeção do mapa">🗺️ Robinson</button>
-
     <!-- Contador flutuante -->
     <div id="map-stats" aria-live="polite" aria-atomic="true">
       <span id="stat-jurisdictions">–</span> <span data-i18n="stat-label">jurisdições visíveis</span> ·
@@ -148,7 +155,7 @@
     </div>
 
     <!-- Botão para abrir sidebar quando recolhida -->
-    <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden data-i18n="btn-filters">☰ Filtros</button>
+    <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden>☰</button>
 
     <!-- Legenda do mapa (rodapé, vale para os 3 modos de projeção) -->
     <div id="map-legend" aria-label="Legenda do mapa">
@@ -263,6 +270,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/d3@7"></script>
 <script src="https://unpkg.com/d3-geo-projection@4"></script>
-<script type="module" src="js/app.js?v=30"></script>
+<script type="module" src="js/app.js?v=31"></script>
 </body>
 </html>

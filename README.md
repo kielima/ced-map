@@ -14,7 +14,7 @@ O mapa usa uma **paleta monocromática vermelha** — a cor indica a *fonte/tipo
 |-----|-----|-------|-------------|
 | 🔴 Vermelho escuro | `#8B0000` | CEDAMIA · MANUAL | Declaração formal de emergência climática (CED) |
 | 🟥 Vermelho médio | `#D9534F` | ALMOST-CED | Tentativa rejeitada / quase-CED |
-| 🩷 Vermelho claro | `#F2A6A6` | WWA | Atribuição climática científica (World Weather Attribution) |
+| 🟠 Laranja | `#FFD485` | WWA | Atribuição climática científica (World Weather Attribution) |
 | ⬜ Cinza | `#D9D9D9` | — | Sem registro |
 
 ---
