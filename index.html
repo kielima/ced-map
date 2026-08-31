@@ -22,7 +22,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=17" rel="stylesheet">
+  <link href="style.css?v=18" rel="stylesheet">
 </head>
 <body>
 
@@ -81,6 +81,14 @@
           <button class="pill active" data-value="nacional" data-i18n="pill-nacional" aria-pressed="true">Nacional</button>
           <button class="pill active" data-value="estadual" data-i18n="pill-estadual" aria-pressed="true">Estadual</button>
           <button class="pill active" data-value="municipal" data-i18n="pill-municipal" aria-pressed="true">Municipal</button>
+        </div>
+      </section>
+
+      <!-- Exibição (rótulos de nome, nos 3 modos de projeção) -->
+      <section class="filter-group">
+        <h2 data-i18n="sec-exibicao">Exibição</h2>
+        <div class="pill-group" id="filter-labels" role="group" aria-labelledby="sec-exibicao-label">
+          <button class="pill active" id="toggle-labels" type="button" data-i18n="pill-labels" aria-pressed="true">🏷️ Nomes</button>
         </div>
       </section>
 
@@ -223,6 +231,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/d3@7"></script>
 <script src="https://unpkg.com/d3-geo-projection@4"></script>
-<script type="module" src="js/app.js?v=28"></script>
+<script type="module" src="js/app.js?v=29"></script>
 </body>
 </html>
