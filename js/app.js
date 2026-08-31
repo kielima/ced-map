@@ -22,10 +22,16 @@ const LANG = {
     'range-hint':           'Arraste para filtrar por ano de declaração',
     'sec-busca':            'Busca',
     'search-placeholder':   'País, jurisdição…',
-    'legend-ced':           'Declaração formal (CED)',
-    'legend-quase':         'Quase-CED / rejeitada',
-    'legend-wwa':           'Atribuição WWA',
+    'legend-group-areas':   'Países / Estados',
+    'legend-group-points':  'Municípios',
+    'legend-ced':           'CED',
+    'legend-quase':         'Quase-CED',
+    'legend-wwa':           'WWA',
     'legend-cinza':         'Sem registro',
+    'legend-tip-ced':       'CED — Climate Emergency Declaration: declaração formal de emergência climática aprovada por lei ou moção do governo.',
+    'legend-tip-quase':     'Tentativa de declaração de emergência climática rejeitada, ou aprovada com linguagem divergente da CED formal.',
+    'legend-tip-wwa':       'WWA — World Weather Attribution: desastre climático nesta jurisdição atribuído cientificamente às mudanças climáticas.',
+    'legend-tip-cinza':     'Nenhuma declaração, atribuição científica ou tentativa registrada nesta jurisdição.',
     'btn-stats':            '📊 Estatísticas',
     'btn-copy':             '🔗 Copiar link',
     'btn-copy-ok':          '✓ Copiado!',
@@ -86,10 +92,16 @@ const LANG = {
     'range-hint':           'Drag to filter by declaration year',
     'sec-busca':            'Search',
     'search-placeholder':   'Country, jurisdiction…',
-    'legend-ced':           'Formal declaration (CED)',
-    'legend-quase':         'Near-CED / rejected',
-    'legend-wwa':           'WWA attribution',
+    'legend-group-areas':   'Countries / States',
+    'legend-group-points':  'Municipalities',
+    'legend-ced':           'CED',
+    'legend-quase':         'Near-CED',
+    'legend-wwa':           'WWA',
     'legend-cinza':         'No record',
+    'legend-tip-ced':       'CED — Climate Emergency Declaration: a formal climate emergency declaration passed by law or government motion.',
+    'legend-tip-quase':     'A climate emergency declaration attempt that was rejected, or passed with language diverging from a formal CED.',
+    'legend-tip-wwa':       'WWA — World Weather Attribution: a climate disaster in this jurisdiction scientifically attributed to climate change.',
+    'legend-tip-cinza':     'No declaration, scientific attribution, or attempt recorded for this jurisdiction.',
     'btn-stats':            '📊 Statistics',
     'btn-copy':             '🔗 Copy link',
     'btn-copy-ok':          '✓ Copied!',
@@ -143,7 +155,7 @@ let theme = localStorage.getItem('ced-theme') ||
 /** Retorna a string traduzida para o idioma ativo. */
 function t(key) { return LANG[lang]?.[key] ?? LANG.pt[key] ?? key; }
 
-/** Aplica o idioma atual a todos os elementos [data-i18n] e [data-i18n-placeholder]. */
+/** Aplica o idioma atual a [data-i18n] / [data-i18n-placeholder] / [data-i18n-tooltip]. */
 function applyLang() {
   document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -151,6 +163,10 @@ function applyLang() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  // Tooltip explicativo da legenda do mapa (CSS puro: content: attr(data-tooltip))
+  document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
+    el.dataset.tooltip = t(el.dataset.i18nTooltip);
   });
   const langBtn = document.getElementById('lang-toggle');
   if (langBtn) langBtn.textContent = t('lang-switch');

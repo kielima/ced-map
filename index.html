@@ -22,7 +22,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=18" rel="stylesheet">
+  <link href="style.css?v=19" rel="stylesheet">
 </head>
 <body>
 
@@ -113,14 +113,8 @@
 
     </div><!-- /filters -->
 
-    <!-- Rodapé com contagem e legenda de cores -->
+    <!-- Rodapé com contagem e ações (a legenda de cores mora no rodapé do mapa, ver #map-legend) -->
     <footer id="sidebar-footer">
-      <div class="legend">
-        <div class="legend-row"><span class="dot" data-color="ced"></span> <span data-i18n="legend-ced">Declaração formal (CED)</span></div>
-        <div class="legend-row"><span class="dot" data-color="quase"></span> <span data-i18n="legend-quase">Quase-CED / rejeitada</span></div>
-        <div class="legend-row"><span class="dot" data-color="wwa"></span> <span data-i18n="legend-wwa">Atribuição WWA</span></div>
-        <div class="legend-row"><span class="dot" data-color="cinza"></span> <span data-i18n="legend-cinza">Sem registro</span></div>
-      </div>
       <div class="footer-actions">
         <button id="stats-btn" type="button" data-i18n="btn-stats">📊 Estatísticas</button>
         <button id="copy-link" type="button" data-i18n="btn-copy" title="Copiar link da vista actual">🔗 Copiar link</button>
@@ -155,6 +149,44 @@
 
     <!-- Botão para abrir sidebar quando recolhida -->
     <button id="sidebar-open" aria-label="Abrir filtros" title="Filtros" hidden data-i18n="btn-filters">☰ Filtros</button>
+
+    <!-- Legenda do mapa (rodapé, vale para os 3 modos de projeção) -->
+    <div id="map-legend" aria-label="Legenda do mapa">
+      <div class="legend-group">
+        <span class="legend-group-title" data-i18n="legend-group-areas">Países / Estados</span>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-ced">
+          <span class="legend-swatch legend-swatch--rect" data-color="ced"></span>
+          <span data-i18n="legend-ced">CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-quase">
+          <span class="legend-swatch legend-swatch--rect" data-color="quase"></span>
+          <span data-i18n="legend-quase">Quase-CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-wwa">
+          <span class="legend-swatch legend-swatch--rect" data-color="wwa"></span>
+          <span data-i18n="legend-wwa">WWA</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-cinza">
+          <span class="legend-swatch legend-swatch--rect" data-color="cinza"></span>
+          <span data-i18n="legend-cinza">Sem registro</span>
+        </div>
+      </div>
+      <div class="legend-group">
+        <span class="legend-group-title" data-i18n="legend-group-points">Municípios</span>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-ced">
+          <span class="legend-swatch legend-swatch--circle" data-color="ced"></span>
+          <span data-i18n="legend-ced">CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-quase">
+          <span class="legend-swatch legend-swatch--circle" data-color="quase"></span>
+          <span data-i18n="legend-quase">Quase-CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-wwa">
+          <span class="legend-swatch legend-swatch--circle" data-color="wwa"></span>
+          <span data-i18n="legend-wwa">WWA</span>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- ── Painel de informação (clique no mapa) ────────────────────────── -->
@@ -231,6 +263,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/d3@7"></script>
 <script src="https://unpkg.com/d3-geo-projection@4"></script>
-<script type="module" src="js/app.js?v=29"></script>
+<script type="module" src="js/app.js?v=30"></script>
 </body>
 </html>
