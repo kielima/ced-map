@@ -412,6 +412,17 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
 .legend-swatch[data-color="wwa"]   { background: var(--c-wwa); }
 .legend-swatch[data-color="cinza"] { background: var(--c-cinza); }
 
+/* Hachura diagonal — mesma textura da camada admin1-hatch no mapa, marca o nível estadual */
+.legend-swatch--hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(26, 35, 50, 0.45) 0,
+    rgba(26, 35, 50, 0.45) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
 /* Tooltip explicativo (hover ou foco por teclado), CSS puro via data-tooltip */
 .legend-item[data-tooltip]:hover::after,
 .legend-item[data-tooltip]:focus-visible::after {
@@ -439,6 +450,11 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
 @media (max-width: 900px) {
   #map-legend { display: none; }
 }
+/* Acima de 900px, um ResizeObserver em #map-wrap (setupMapLegendOverlapGuard,
+   em app.js) alterna esta classe quando não há espaço para o contador e a
+   legenda lado a lado sem sobrepor — cobre o caso da sidebar aberta reduzir
+   a largura do mapa, que uma media query (só vê o viewport) não enxerga. */
+#map-legend.legend-cramped { display: none; }
 
 /* Indicador de carregamento do admin-2 (lazy-load em zoom ≥ 6) */
 #admin2-loading {

@@ -22,7 +22,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="style.css?v=22" rel="stylesheet">
+  <link href="style.css?v=23" rel="stylesheet">
 </head>
 <body>
 
@@ -160,7 +160,7 @@
     <!-- Legenda do mapa (rodapé, vale para os 3 modos de projeção) -->
     <div id="map-legend" aria-label="Legenda do mapa">
       <div class="legend-group">
-        <span class="legend-group-title" data-i18n="legend-group-areas">Países / Estados</span>
+        <span class="legend-group-title" data-i18n="legend-group-countries">Países</span>
         <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-ced">
           <span class="legend-swatch legend-swatch--rect" data-color="ced"></span>
           <span data-i18n="legend-ced">CED</span>
@@ -176,6 +176,21 @@
         <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-cinza">
           <span class="legend-swatch legend-swatch--rect" data-color="cinza"></span>
           <span data-i18n="legend-cinza">Sem registro</span>
+        </div>
+      </div>
+      <div class="legend-group">
+        <span class="legend-group-title" data-i18n="legend-group-states">Estados</span>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-ced">
+          <span class="legend-swatch legend-swatch--rect legend-swatch--hatch" data-color="ced"></span>
+          <span data-i18n="legend-ced">CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-quase">
+          <span class="legend-swatch legend-swatch--rect legend-swatch--hatch" data-color="quase"></span>
+          <span data-i18n="legend-quase">Quase-CED</span>
+        </div>
+        <div class="legend-item" tabindex="0" data-i18n-tooltip="legend-tip-wwa">
+          <span class="legend-swatch legend-swatch--rect legend-swatch--hatch" data-color="wwa"></span>
+          <span data-i18n="legend-wwa">WWA</span>
         </div>
       </div>
       <div class="legend-group">
@@ -270,6 +285,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/d3@7"></script>
 <script src="https://unpkg.com/d3-geo-projection@4"></script>
-<script type="module" src="js/app.js?v=31"></script>
+<script type="module" src="js/app.js?v=32"></script>
 </body>
 </html>
