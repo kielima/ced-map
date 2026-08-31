@@ -321,7 +321,7 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
 }
 #map-robinson:active { cursor: grabbing; }
 #map-robinson.hidden, #map.hidden { display: none; }
-#map-robinson .robinson-sphere { fill: #ffffff; stroke: var(--border); stroke-width: 0.6; }
+#map-robinson .robinson-sphere { fill: #ffffff; stroke: none; }
 #map-robinson .robinson-country { transition: fill 0.15s ease; }
 
 #robinson-tooltip {

@@ -356,6 +356,12 @@ function recolorWaterToWhite() {
 }
 
 async function onMapLoad(hashState) {  // async: aguarda loadAdmin1Layer()
+  // O estilo liberty do OpenFreeMap carrega com projection:mercator por padrão
+  // e isso sobrescreve a opção `projection` passada no construtor do Map — por
+  // isso o globe só "gruda" se for reforçado aqui, depois que o estilo carregou
+  // (mesmo padrão documentado pelo MapLibre: setProjection após 'load'/'style.load').
+  map.setProjection({ type: 'globe' });
+
   // Mar/oceano em branco (override do estilo liberty do OpenFreeMap)
   recolorWaterToWhite();
 
