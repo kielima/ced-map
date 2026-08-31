@@ -16,6 +16,7 @@ const LANG = {
     'pill-nacional':        'Nacional',
     'pill-estadual':        'Estadual',
     'pill-municipal':       'Municipal',
+    'sec-projecao':         'Projeção',
     'sec-exibicao':         'Exibição',
     'pill-labels':          '🏷️ Nomes',
     'sec-periodo':          'Período',
@@ -39,7 +40,6 @@ const LANG = {
     'sources':              'Fontes:',
     'stat-label':           'jurisdições visíveis',
     'stat-countries-label': 'países',
-    'btn-filters':          '☰ Filtros',
     'empty-hint':           '— ajuste os filtros para ver dados',
     'admin2-loading':       'Carregando municípios…',
     'loading':              'Carregando dados…',
@@ -86,6 +86,7 @@ const LANG = {
     'pill-nacional':        'National',
     'pill-estadual':        'State/Province',
     'pill-municipal':       'Municipal',
+    'sec-projecao':         'Projection',
     'sec-exibicao':         'Display',
     'pill-labels':          '🏷️ Names',
     'sec-periodo':          'Period',
@@ -109,7 +110,6 @@ const LANG = {
     'sources':              'Sources:',
     'stat-label':           'visible jurisdictions',
     'stat-countries-label': 'countries',
-    'btn-filters':          '☰ Filters',
     'empty-hint':           '— adjust filters to see data',
     'admin2-loading':       'Loading municipalities…',
     'loading':              'Loading data…',
@@ -170,8 +170,6 @@ function applyLang() {
   });
   const langBtn = document.getElementById('lang-toggle');
   if (langBtn) langBtn.textContent = t('lang-switch');
-  const projBtn = document.getElementById('proj-toggle');
-  if (projBtn) updateProjToggleLabel(projBtn);
   // Atualizar gráficos se abertos
   if (statsCharts.timeline) updateCharts();
 }
@@ -191,17 +189,17 @@ function applyTheme() {
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-// Paleta monocromática (vermelho) — cor por fonte da entrada, não pelo nível
+// Cor por fonte da entrada, não pelo nível
 const COLORS = {
   ced:      '#8B0000',  // vermelho escuro: CEDAMIA + MANUAL
   quase:    '#D9534F',  // vermelho médio: ALMOST-CED
-  wwa:      '#F2A6A6',  // vermelho claro: WWA
+  wwa:      '#FFD485',  // laranja: WWA
   cinza:    '#D9D9D9',
   // Aliases retro-compat (campo cor_mapa do CSV) — mapeiam ao novo esquema
   vermelho: '#8B0000',
   laranja:  '#8B0000',
   amarelo:  '#8B0000',
-  azul:     '#F2A6A6',
+  azul:     '#FFD485',
   roxo:     '#D9534F',
 };
 
@@ -2116,23 +2114,30 @@ document.getElementById('pais-search')?.addEventListener('input', deckSyncAnnoun
 let robinson = null;           // { svg, g, projection, path, width, height }
 let robinsonSelectedIso = null;
 
+/** Pills de projeção no painel de filtros (seleção direta, não cíclica). */
 function setupProjectionToggle() {
-  const btn = document.getElementById('proj-toggle');
-  if (!btn) return;
-  updateProjToggleLabel(btn);
-  btn.addEventListener('click', () => {
-    const next = VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length];
-    viewMode = next;
-    localStorage.setItem('ced-viewmode', viewMode);
-    updateProjToggleLabel(btn);
-    applyViewMode();
+  const buttons = document.querySelectorAll('#filter-projection .pill');
+  if (!buttons.length) return;
+  syncProjectionPills();
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (!VIEW_MODES.includes(mode) || mode === viewMode) return;
+      viewMode = mode;
+      localStorage.setItem('ced-viewmode', viewMode);
+      syncProjectionPills();
+      applyViewMode();
+    });
   });
   applyViewMode();
 }
 
-/** O botão mostra o modo atual; clicar cicla para o próximo em VIEW_MODES. */
-function updateProjToggleLabel(btn) {
-  btn.textContent = t(`proj-mode-${viewMode}`);
+function syncProjectionPills() {
+  document.querySelectorAll('#filter-projection .pill').forEach(btn => {
+    const active = btn.dataset.mode === viewMode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
 }
 
 function applyViewMode() {
