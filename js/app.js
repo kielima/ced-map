@@ -23,7 +23,8 @@ const LANG = {
     'range-hint':           'Arraste para filtrar por ano de declaração',
     'sec-busca':            'Busca',
     'search-placeholder':   'País, jurisdição…',
-    'legend-group-areas':   'Países / Estados',
+    'legend-group-countries': 'Países',
+    'legend-group-states':  'Estados',
     'legend-group-points':  'Municípios',
     'legend-ced':           'CED',
     'legend-quase':         'Quase-CED',
@@ -93,7 +94,8 @@ const LANG = {
     'range-hint':           'Drag to filter by declaration year',
     'sec-busca':            'Search',
     'search-placeholder':   'Country, jurisdiction…',
-    'legend-group-areas':   'Countries / States',
+    'legend-group-countries': 'Countries',
+    'legend-group-states':  'States',
     'legend-group-points':  'Municipalities',
     'legend-ced':           'CED',
     'legend-quase':         'Near-CED',
@@ -498,6 +500,33 @@ function firstSymbolLayer() {
   return layers.find(l => l.type === 'symbol')?.id;
 }
 
+/**
+ * Gera (uma vez) e registra no estilo do mapa uma textura de linhas diagonais
+ * 45°, usada como fill-pattern para diferenciar visualmente polígonos
+ * estaduais (hachurados) dos nacionais (sólidos, countries-fill).
+ * O padrão é desenhado com 3 traços (um central + dois meio-traços nos
+ * cantos) para casar as bordas do tile e repetir sem emenda visível.
+ */
+function ensureHatchPattern() {
+  if (map.hasImage('hatch-diag')) return;
+  const size = 8;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = 'rgba(26, 35, 50, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.moveTo(-size / 4, size / 4);
+  ctx.lineTo(size / 4, -size / 4);
+  ctx.moveTo(size * 0.75, size * 1.25);
+  ctx.lineTo(size * 1.25, size * 0.75);
+  ctx.stroke();
+  map.addImage('hatch-diag', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+}
+
 /** Carrega admin-1 (estados/províncias) — Natural Earth 50m com promoteId ne_id */
 async function loadAdmin1Layer() {
   try {
@@ -516,36 +545,41 @@ async function loadAdmin1Layer() {
       promoteId: 'ne_id',
     });
 
-    // Inserir admin1-fill ACIMA de countries-border mas ABAIXO de countries-highlight
+    // Inserir admin1-fill ACIMA de countries-border mas ABAIXO de countries-highlight.
+    // Sem minzoom/fade: o preenchimento estadual fica visível mesmo no zoom out
+    // (mundo inteiro), não só depois de aproximar.
     map.addLayer({
       id: 'admin1-fill',
       type: 'fill',
       source: 'admin1',
-      minzoom: 3,
       paint: {
         'fill-color': buildAdmin1ColorExpr(),
-        // Aparece suavemente ao dar zoom in
-        'fill-opacity': [
-          'interpolate', ['linear'], ['zoom'],
-          3, 0,
-          4, 0.82,
-        ],
+        'fill-opacity': 0.82,
       },
     }, 'countries-highlight'); // inserido abaixo do highlight de seleção
+
+    // Hachura diagonal sobre os estados com dado — distingue visualmente o nível
+    // estadual (hachurado) do nacional (sólido, countries-fill) na mesma legenda.
+    ensureHatchPattern();
+    map.addLayer({
+      id: 'admin1-hatch',
+      type: 'fill',
+      source: 'admin1',
+      filter: buildAdmin1HatchFilter(),
+      paint: {
+        'fill-pattern': 'hatch-diag',
+        'fill-opacity': 0.9,
+      },
+    }, 'countries-highlight');
 
     map.addLayer({
       id: 'admin1-border',
       type: 'line',
       source: 'admin1',
-      minzoom: 3,
       paint: {
         'line-color': '#ffffff',
         'line-width': 0.5,
-        'line-opacity': [
-          'interpolate', ['linear'], ['zoom'],
-          3, 0,
-          4, 0.5,
-        ],
+        'line-opacity': 0.5,
       },
     }, 'countries-highlight');
 
@@ -828,18 +862,27 @@ function buildCountryColorExpr() {
  * Usa ['id'] para acessar o ne_id (promoteId na source),
  * casando com adm1_ne_id do banco. Prioridade: laranja > amarelo > outros.
  */
-function buildAdmin1ColorExpr() {
-  const expr = ['match', ['id']];
-
-  // Estado só fica pintado se tiver declaração no NÍVEL estadual.
-  // Municípios dentro do estado não tingem o estado.
+/**
+ * Agrupa entradas filtradas do nível estadual por ne_id (join Natural Earth
+ * admin-1). Compartilhado entre buildAdmin1ColorExpr e buildAdmin1HatchFilter
+ * para os dois usarem exatamente o mesmo critério de "este estado tem dado".
+ */
+function admin1EntriesByNeId() {
   const byNeId = {};
   for (const e of getFilteredEntries()) {
+    // Estado só fica pintado se tiver declaração no NÍVEL estadual.
+    // Municípios dentro do estado não tingem o estado.
     if (e.nivel !== 'estadual') continue;
     if (!e.adm1_ne_id) continue;
     if (!byNeId[e.adm1_ne_id]) byNeId[e.adm1_ne_id] = [];
     byNeId[e.adm1_ne_id].push(e);
   }
+  return byNeId;
+}
+
+function buildAdmin1ColorExpr() {
+  const expr = ['match', ['id']];
+  const byNeId = admin1EntriesByNeId();
 
   for (const [idStr, entries] of Object.entries(byNeId)) {
     const color = topColor(entries);
@@ -849,6 +892,18 @@ function buildAdmin1ColorExpr() {
   if (expr.length < 4) return 'rgba(0,0,0,0)';
   expr.push('rgba(0,0,0,0)');
   return expr;
+}
+
+/** Filtro MapLibre: só os polígonos admin-1 com cor atribuída (mesmo critério do fill),
+ *  usado pela camada de hachura diagonal que marca visualmente o nível estadual. */
+function buildAdmin1HatchFilter() {
+  const byNeId = admin1EntriesByNeId();
+  const ids = [];
+  for (const [idStr, entries] of Object.entries(byNeId)) {
+    if (topColor(entries)) ids.push(Number(idStr));
+  }
+  if (!ids.length) return ['==', ['id'], -1]; // nada corresponde — esconde a camada
+  return ['in', ['id'], ['literal', ids]];
 }
 
 /** Agrupa banco filtrado por iso_3 */
@@ -1343,6 +1398,26 @@ function setupFiltersUI() {
 
   // ── Toggle de rótulos de nome (vale para os 3 modos de projeção) ────────
   setupLabelsToggle();
+
+  // ── Evita sobrepor contador × legenda quando a sidebar aberta aperta o mapa ──
+  setupMapLegendOverlapGuard();
+}
+
+/**
+ * A legenda é centralizada em #map-wrap; com a sidebar aberta (que reduz a
+ * largura do mapa em 320px) ou em janelas menos largas, ela pode colidir com
+ * o contador de jurisdições no canto esquerdo. Uma media query só vê o
+ * viewport, não a largura real de #map-wrap — por isso o ResizeObserver.
+ */
+function setupMapLegendOverlapGuard() {
+  const mapWrap = document.getElementById('map-wrap');
+  const legend  = document.getElementById('map-legend');
+  if (!mapWrap || !legend || !('ResizeObserver' in window)) return;
+  const MIN_WIDTH = 1560; // abaixo disso, contador + legenda não cabem lado a lado
+  new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width;
+    legend.classList.toggle('legend-cramped', width < MIN_WIDTH);
+  }).observe(mapWrap);
 }
 
 function setupLabelsToggle() {
@@ -1495,6 +1570,10 @@ function applyFilters() {
 
   if (map.getLayer('admin1-fill')) {
     map.setPaintProperty('admin1-fill', 'fill-color', buildAdmin1ColorExpr());
+  }
+
+  if (map.getLayer('admin1-hatch')) {
+    map.setFilter('admin1-hatch', buildAdmin1HatchFilter());
   }
 
   if (map.getSource('points')) {
