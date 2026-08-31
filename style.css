@@ -254,25 +254,6 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
   flex-shrink: 0;
 }
 
-.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin-bottom: 10px; }
-.legend-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.74rem;
-  color: var(--text-muted);
-}
-
-.dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot[data-color="ced"]      { background: var(--c-ced); }
-.dot[data-color="quase"]    { background: var(--c-quase); }
-.dot[data-color="wwa"]      { background: var(--c-wwa); }
-.dot[data-color="cinza"]    { background: var(--c-cinza); }
-
 .footer-actions {
   display: flex;
   gap: 6px;
@@ -388,6 +369,95 @@ html, body { height: 100%; overflow: hidden; font-family: system-ui, -apple-syst
   border: 1px solid #ffb86b;
 }
 #map-stats.empty .empty-hint { display: inline; margin-left: 4px; }
+
+/* Legenda flutuante do mapa (rodapé) — vale para os 3 modos de projeção.
+   Grupos de área (países/estados) usam retângulos ao estilo IBGE; grupos
+   de ponto (municípios) usam círculos, como os marcadores no mapa. */
+#map-legend {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  background: rgba(26, 35, 50, 0.88);
+  color: var(--text-main);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  backdrop-filter: blur(4px);
+  z-index: 5;
+}
+
+.legend-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.legend-group + .legend-group {
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding-left: 18px;
+}
+
+.legend-group-title {
+  font-size: 0.63rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #aebbcc;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.legend-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: default;
+}
+.legend-item:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.legend-swatch { flex-shrink: 0; }
+.legend-swatch--rect {
+  width: 14px; height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.legend-swatch--circle {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.legend-swatch[data-color="ced"]   { background: var(--c-ced); }
+.legend-swatch[data-color="quase"] { background: var(--c-quase); }
+.legend-swatch[data-color="wwa"]   { background: var(--c-wwa); }
+.legend-swatch[data-color="cinza"] { background: var(--c-cinza); }
+
+/* Tooltip explicativo (hover ou foco por teclado), CSS puro via data-tooltip */
+.legend-item[data-tooltip]:hover::after,
+.legend-item[data-tooltip]:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: rgba(10, 15, 25, 0.97);
+  color: #fff;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  width: max-content;
+  max-width: 220px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 30;
+}
+
+@media (max-width: 640px) {
+  #map-legend { display: none; }
+}
 
 /* Indicador de carregamento do admin-2 (lazy-load em zoom ≥ 6) */
 #admin2-loading {
