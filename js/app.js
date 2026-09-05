@@ -234,9 +234,11 @@ let selectedScope = null; // { iso, ne_id?, region_name?, admin2_name?, displayN
 // 'robinson' (D3, projeção plana real — o MapLibre não suporta Robinson nativamente,
 // só mercator/globe, então esse modo é um mapa D3 paralelo; ver seção "Projeção
 // Robinson" mais abaixo). O botão de alternância cicla entre os três.
+// O Globe é sempre a view inicial ao abrir o site: a escolha feita no toggle vale
+// só para a visita atual e não é persistida em localStorage (antes ficava salva
+// entre visitas, então Robinson/Mercator podiam "grudar" como primeira view).
 const VIEW_MODES = ['globe', 'robinson', 'mercator'];
-const storedViewMode = localStorage.getItem('ced-viewmode');
-let viewMode = VIEW_MODES.includes(storedViewMode) ? storedViewMode : 'globe';
+let viewMode = 'globe';
 
 /** Projeção que o MapLibre (modos globe/mercator) deve usar para o viewMode atual. */
 function mapProjectionType() {
@@ -2203,7 +2205,6 @@ function setupProjectionToggle() {
       const mode = btn.dataset.mode;
       if (!VIEW_MODES.includes(mode) || mode === viewMode) return;
       viewMode = mode;
-      localStorage.setItem('ced-viewmode', viewMode);
       syncProjectionPills();
       applyViewMode();
     });
