@@ -246,6 +246,16 @@ function mapProjectionType() {
 }
 let countriesGeoData = null; // cache do GeoJSON de países, compartilhado com o modo Robinson
 
+// Rotação automática do globo: ativa sempre que se entra no modo Globe (load
+// inicial ou ao voltar de Mercator/Robinson) e para com qualquer clique, arrasto
+// ou zoom feito diretamente no mapa. Uma vez parada, só volta a girar pelo botão
+// de play/pause (GlobeSpinControl) — nunca sozinha depois de um tempo parada.
+let spinEnabled = true;
+let spinBtnEl = null; // <button> do GlobeSpinControl, para refletir ícone/estado
+const SPIN_SECONDS_PER_REVOLUTION = 180;
+const SPIN_MAX_ZOOM = 5;   // a partir desse zoom, a rotação para
+const SPIN_SLOW_ZOOM = 3;  // a partir desse zoom, desacelera até parar em SPIN_MAX_ZOOM
+
 // Mostrar/ocultar rótulos de nome (países/cidades no globe/mercator; nomes de
 // país desenhados no Robinson), válido para os 3 modos de projeção.
 let showLabels = localStorage.getItem('ced-labels') !== '0';
@@ -344,6 +354,67 @@ async function shareMapLink(btn) {
   }
 }
 
+/** Botão de play/pause da rotação automática do globo (só visível no modo Globe). */
+class GlobeSpinControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group map-spin-ctrl';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      spinEnabled = !spinEnabled;
+      updateSpinButton();
+      if (spinEnabled) spinGlobe();
+    });
+
+    this._container.appendChild(btn);
+    spinBtnEl = btn;
+    updateSpinButton();
+    return this._container;
+  }
+  onRemove() {
+    this._container.parentNode?.removeChild(this._container);
+    this._map = undefined;
+    spinBtnEl = null;
+  }
+}
+
+/** Atualiza ícone/aria-label do botão de rotação e sua visibilidade (só faz sentido no modo Globe). */
+function updateSpinButton() {
+  if (!spinBtnEl) return;
+  spinBtnEl.parentElement.style.display = viewMode === 'globe' ? '' : 'none';
+  const label = spinEnabled ? 'Pausar rotação do globo' : 'Retomar rotação do globo';
+  spinBtnEl.setAttribute('aria-label', label);
+  spinBtnEl.title = label;
+  spinBtnEl.innerHTML = spinEnabled
+    ? `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>`
+    : `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
+}
+
+/** Para a rotação automática. Chamado em qualquer interação direta com o mapa
+ *  (clique, arrasto, zoom) — depois disso só volta a girar pelo botão de play/pause. */
+function stopSpin() {
+  if (!spinEnabled) return;
+  spinEnabled = false;
+  updateSpinButton();
+}
+
+/** Um passo da animação de rotação do globo; encadeia-se sozinho via 'moveend' (ver setupMap). */
+function spinGlobe() {
+  if (!map || viewMode !== 'globe' || !spinEnabled) return;
+  const zoom = map.getZoom();
+  if (zoom >= SPIN_MAX_ZOOM) return;
+  let degreesPerSecond = 360 / SPIN_SECONDS_PER_REVOLUTION;
+  if (zoom > SPIN_SLOW_ZOOM) {
+    degreesPerSecond *= (SPIN_MAX_ZOOM - zoom) / (SPIN_MAX_ZOOM - SPIN_SLOW_ZOOM);
+  }
+  const center = map.getCenter();
+  center.lng -= degreesPerSecond;
+  map.easeTo({ center, duration: 1000, easing: n => n });
+}
+
 function setupMap(hashState) {
   const view = hashState?.view;
   map = new maplibregl.Map({
@@ -363,8 +434,17 @@ function setupMap(hashState) {
   map.touchZoomRotate.disableRotation();
 
   map.addControl(new MapShareControl(), 'top-right');
+  map.addControl(new GlobeSpinControl(), 'top-right');
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+  // Rotação automática do globo: encadeia via 'moveend' e para com qualquer
+  // interação direta no mapa (clique, arrasto, zoom) — ver spinGlobe/stopSpin.
+  map.on('moveend', spinGlobe);
+  map.on('mousedown', stopSpin);
+  map.on('touchstart', stopSpin);
+  map.on('dragstart', stopSpin);
+  map.on('zoomstart', e => { if (e.originalEvent) stopSpin(); });
 
   map.on('load', () => onMapLoad(hashState));
   map.on('error', e => console.warn('MapLibre:', e.error?.message));
@@ -1542,6 +1622,7 @@ function initBottomSheetDrag() {
 
 function flyToCountry(iso, name) {
   if (!map) return;
+  stopSpin(); // busca leva a um país específico; a rotação não deve "puxar" o mapa dali
   // Tentar encontrar o centróide do país no GeoJSON
   const source = map.getSource('countries');
   if (source) {
@@ -2228,9 +2309,10 @@ function applyViewMode() {
   if (viewMode === 'robinson') {
     mapEl.classList.add('hidden');
     robEl.classList.remove('hidden');
-    if (!countriesGeoData) return; // dados ainda não carregados; nada a desenhar
-    if (!robinson) initRobinson();
-    resizeRobinson(); // mede o container agora visível e (re)desenha
+    if (countriesGeoData) {
+      if (!robinson) initRobinson();
+      resizeRobinson(); // mede o container agora visível e (re)desenha
+    } // senão: dados ainda não carregados, nada a desenhar
   } else {
     robEl.classList.add('hidden');
     mapEl.classList.remove('hidden');
@@ -2240,6 +2322,14 @@ function applyViewMode() {
       map.resize(); // canvas pode ter ficado com tamanho desatualizado enquanto oculto
     }
   }
+
+  // Voltar ao modo Globe (load inicial ou retorno do Mercator/Robinson) sempre
+  // rearma a rotação automática, mesmo que tivesse sido pausada antes de sair dele.
+  if (viewMode === 'globe') {
+    spinEnabled = true;
+    spinGlobe();
+  }
+  updateSpinButton();
 }
 
 function initRobinson() {

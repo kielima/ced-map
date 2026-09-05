@@ -762,6 +762,22 @@ body:has(#admin-banner) #app { padding-top: 28px; }
 .map-share-ctrl button:hover { background: #f0f0f0; }
 .map-share-ctrl button.share-copied { background: #e8f5ee; color: #2d8659; }
 
+/* Botão de play/pause da rotação automática do globo (mesmo estilo dos botões +/-) */
+.map-spin-ctrl button {
+  width: 29px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  color: #333;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.map-spin-ctrl button:hover { background: #f0f0f0; }
+
 /* ── Responsivo ───────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   #app {
