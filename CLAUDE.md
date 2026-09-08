@@ -20,13 +20,17 @@ Leia este arquivo antes de qualquer outra coisa. Ele descreve o projeto, o estad
 verdade** — pipeline de dados e código-fonte moram só aqui. O
 `.github/workflows/sync-to-site.yml` sincroniza automaticamente a build
 estática (`index.html`, `style.css`, `js/app.js`, `data/*.json`/`*.geojson`)
-para `kielima-site/public/dec/` a cada push validado em `main`, abrindo um PR
-lá. Requer o secret `KIELIMA_SITE_SYNC_TOKEN` neste repo (token com acesso de
-escrita a `kielima/kielima-site`) — configurado em set/2026. Depende também
-do `workflow_dispatch` em `ci.yml` e do step "Trigger downstream workflows"
-em `auto-merge.yml` (sem eles, o merge via `GITHUB_TOKEN` não religa a CI em
-`main`, e `sync-to-site.yml` nunca dispara — bug real encontrado e corrigido
-no teste ponta a ponta de set/2026, não remover esse step).
+para `kielima-site/public/dec/` a cada merge de PR em `main`, abrindo um PR
+lá. É disparado **diretamente** por `auto-merge.yml` via
+`workflow_dispatch(sha: <sha do merge>)`, logo após o squash-merge — não por
+`workflow_run` escutando a CI: a primeira versão fazia isso e, mesmo depois
+de religar a CI em `main` (que o merge via `GITHUB_TOKEN` não dispara
+sozinho, regra anti-loop do GitHub), a conclusão da CI não encadeava um novo
+`workflow_run` de forma confiável (achado real, testado nos PRs #50-#53 de
+set/2026 — não reintroduzir esse padrão). Requer o secret
+`KIELIMA_SITE_SYNC_TOKEN` neste repo (token com acesso de escrita a
+`kielima/kielima-site`) — configurado em set/2026, validação ponta a ponta
+em andamento.
 
 Duas diferenças na cópia de `kielima.com/dec`: sem a camada PWA (sem
 `manifest.json`/`sw.js` — só web) e metadados OG/título apontando para
