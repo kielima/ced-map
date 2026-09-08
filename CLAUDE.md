@@ -22,9 +22,8 @@ verdade** — pipeline de dados e código-fonte moram só aqui. O
 estática (`index.html`, `style.css`, `js/app.js`, `data/*.json`/`*.geojson`)
 para `kielima-site/public/dec/` a cada push validado em `main`, abrindo um PR
 lá. Requer o secret `KIELIMA_SITE_SYNC_TOKEN` neste repo (token com acesso de
-escrita a `kielima/kielima-site`) — configurar manualmente em Settings →
-Secrets and variables → Actions; sem ele o workflow falha no checkout do
-kielima-site.
+escrita a `kielima/kielima-site`) — configurado em set/2026 e validado com um
+push de teste, que abriu o PR de sync esperado em `kielima-site`.
 
 Duas diferenças na cópia de `kielima.com/dec`: sem a camada PWA (sem
 `manifest.json`/`sw.js` — só web) e metadados OG/título apontando para
