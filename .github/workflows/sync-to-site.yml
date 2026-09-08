@@ -1,7 +1,18 @@
 # Sincroniza a build estática (sem a camada PWA) para kielima/kielima-site,
-# em public/dec/, sempre que a CI passar num push em main. Abre um PR lá —
-# não empurra direto para main — para que o CI do site (npm run testar)
-# valide antes de ir ao ar.
+# em public/dec/, a cada merge validado em main. Abre um PR lá — não empurra
+# direto para main — para que o CI do site (npm run testar) valide antes de
+# ir ao ar.
+#
+# Disparado diretamente por auto-merge.yml (via workflow_dispatch) logo após
+# um squash-merge bem-sucedido, em vez de encadear por cima do workflow_run
+# de "CI" completando: a primeira versão deste workflow escutava
+# workflow_run de CI, mas o merge deste repo usa o GITHUB_TOKEN padrão, que
+# por regra anti-loop do GitHub não dispara o gatilho push em main — e,
+# mesmo depois de auto-merge.yml passar a rechamar a CI via
+# workflow_dispatch como correção, essa segunda conclusão de CI não
+# encadeava de forma confiável um novo workflow_run aqui (testado em
+# set/2026, PRs #50-#52). Chamar este workflow direto elimina o encadeamento
+# frágil por completo.
 #
 # Requer o secret KIELIMA_SITE_SYNC_TOKEN neste repositório: um token com
 # permissão de leitura/escrita de conteúdo e de pull requests sobre
@@ -12,24 +23,23 @@
 name: Sync to kielima-site
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA de main a sincronizar"
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   sync:
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ced-map
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ inputs.sha }}
 
       - name: Checkout kielima-site
         uses: actions/checkout@v4
@@ -71,12 +81,12 @@ jobs:
             exit 0
           fi
 
-          BRANCH="sync/ced-map-${{ github.event.workflow_run.head_sha }}"
+          BRANCH="sync/ced-map-${{ inputs.sha }}"
           git checkout -b "$BRANCH"
           git add public/dec
-          git commit -m "sync: atualiza /dec a partir de kielima/ced-map@${{ github.event.workflow_run.head_sha }}"
+          git commit -m "sync: atualiza /dec a partir de kielima/ced-map@${{ inputs.sha }}"
           git push origin "$BRANCH"
           gh pr create \
             --title "Sync: atualiza /dec (CED Map)" \
-            --body "Sincronização automática a partir de kielima/ced-map@${{ github.event.workflow_run.head_sha }}. Gerado por .github/workflows/sync-to-site.yml em kielima/ced-map." \
+            --body "Sincronização automática a partir de kielima/ced-map@${{ inputs.sha }}. Gerado por .github/workflows/sync-to-site.yml em kielima/ced-map." \
             --base main --head "$BRANCH"

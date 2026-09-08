@@ -49,7 +49,7 @@ jobs:
             for (const pr of eligible) {
               core.info(`Squash-merging PR #${pr.number}: ${pr.title}`);
               try {
-                await github.rest.pulls.merge({
+                const { data } = await github.rest.pulls.merge({
                   owner, repo,
                   pull_number: pr.number,
                   merge_method: 'squash',
@@ -58,6 +58,7 @@ jobs:
                 });
                 core.info(`PR #${pr.number} merged successfully.`);
                 core.setOutput('merged', 'true');
+                core.setOutput('sha', data.sha);
               } catch (err) {
                 core.setFailed(`Failed to merge PR #${pr.number}: ${err.message}`);
               }
@@ -67,10 +68,9 @@ jobs:
       # como qualquer push feito por ele) NÃO disparam outros workflows que
       # escutam `push: branches: [main]` — é uma regra anti-loop do GitHub.
       # Sem isto, a CI ficaria silenciosamente parada na main após cada
-      # auto-merge, e sync-to-site.yml (que só age em workflow_run de "CI"
-      # com head_branch == main) nunca dispararia. NÃO REMOVER, mesmo que
-      # pareça redundante: workflow_dispatch é a exceção documentada que o
-      # GITHUB_TOKEN pode invocar para religar esses workflows manualmente.
+      # auto-merge. NÃO REMOVER, mesmo que pareça redundante:
+      # workflow_dispatch é a exceção documentada que o GITHUB_TOKEN pode
+      # invocar para religar esses workflows manualmente.
       - name: Trigger downstream workflows
         if: steps.merge.outputs.merged == 'true'
         uses: actions/github-script@v7
@@ -83,3 +83,17 @@ jobs:
               ref: 'main',
             });
             core.info('Disparado workflow_dispatch em ci.yml (ref: main).');
+
+            // Sincroniza kielima-site/public/dec/ direto após o merge, em vez
+            // de depender do workflow_run de "CI" encadeado acima — testado
+            // e confirmado não confiável em set/2026 (PRs #50-#52 no
+            // ced-map): a segunda conclusão de CI (via workflow_dispatch)
+            // nem sempre dispara um novo workflow_run para quem a escuta.
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-to-site.yml',
+              ref: 'main',
+              inputs: { sha: '${{ steps.merge.outputs.sha }}' },
+            });
+            core.info('Disparado workflow_dispatch em sync-to-site.yml (sha: ${{ steps.merge.outputs.sha }}).');
