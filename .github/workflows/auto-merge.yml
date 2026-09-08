@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Necessário para o step "Trigger downstream workflows" — sem isto o
+  # dispatch do CI falha com 403.
+  actions: write
 
 jobs:
   auto-merge:
@@ -19,6 +22,7 @@ jobs:
       github.event.workflow_run.event == 'pull_request'
     steps:
       - name: Find and squash-merge eligible PR
+        id: merge
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -38,6 +42,7 @@ jobs:
 
             if (eligible.length === 0) {
               core.info('No eligible non-draft PR found for this run — skipping.');
+              core.setOutput('merged', 'false');
               return;
             }
 
@@ -52,7 +57,29 @@ jobs:
                   commit_message: pr.body ?? '',
                 });
                 core.info(`PR #${pr.number} merged successfully.`);
+                core.setOutput('merged', 'true');
               } catch (err) {
                 core.setFailed(`Failed to merge PR #${pr.number}: ${err.message}`);
               }
             }
+
+      # Motivo deste step: merges feitos via API com o GITHUB_TOKEN (assim
+      # como qualquer push feito por ele) NÃO disparam outros workflows que
+      # escutam `push: branches: [main]` — é uma regra anti-loop do GitHub.
+      # Sem isto, a CI ficaria silenciosamente parada na main após cada
+      # auto-merge, e sync-to-site.yml (que só age em workflow_run de "CI"
+      # com head_branch == main) nunca dispararia. NÃO REMOVER, mesmo que
+      # pareça redundante: workflow_dispatch é a exceção documentada que o
+      # GITHUB_TOKEN pode invocar para religar esses workflows manualmente.
+      - name: Trigger downstream workflows
+        if: steps.merge.outputs.merged == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yml',
+              ref: 'main',
+            });
+            core.info('Disparado workflow_dispatch em ci.yml (ref: main).');

@@ -5,6 +5,13 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Exceção documentada à regra de anti-loop do GITHUB_TOKEN: pushes feitos
+  # pelo GITHUB_TOKEN (incluindo o merge do auto-merge.yml) não disparam o
+  # gatilho `push`, então o auto-merge rechama este workflow via
+  # workflow_dispatch depois de mesclar na main. Sem isso, o CI nunca roda
+  # de novo em main após um merge, e sync-to-site.yml (que só age quando o
+  # workflow_run de "CI" tem head_branch == main) nunca dispara.
+  workflow_dispatch:
 
 jobs:
   validate:
