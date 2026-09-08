@@ -22,8 +22,11 @@ verdade** — pipeline de dados e código-fonte moram só aqui. O
 estática (`index.html`, `style.css`, `js/app.js`, `data/*.json`/`*.geojson`)
 para `kielima-site/public/dec/` a cada push validado em `main`, abrindo um PR
 lá. Requer o secret `KIELIMA_SITE_SYNC_TOKEN` neste repo (token com acesso de
-escrita a `kielima/kielima-site`) — configurado em set/2026 e validado com um
-push de teste, que abriu o PR de sync esperado em `kielima-site`.
+escrita a `kielima/kielima-site`) — configurado em set/2026. Depende também
+do `workflow_dispatch` em `ci.yml` e do step "Trigger downstream workflows"
+em `auto-merge.yml` (sem eles, o merge via `GITHUB_TOKEN` não religa a CI em
+`main`, e `sync-to-site.yml` nunca dispara — bug real encontrado e corrigido
+no teste ponta a ponta de set/2026, não remover esse step).
 
 Duas diferenças na cópia de `kielima.com/dec`: sem a camada PWA (sem
 `manifest.json`/`sw.js` — só web) e metadados OG/título apontando para
