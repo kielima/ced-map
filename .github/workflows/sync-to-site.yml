@@ -1,0 +1,82 @@
+# Sincroniza a build estática (sem a camada PWA) para kielima/kielima-site,
+# em public/dec/, sempre que a CI passar num push em main. Abre um PR lá —
+# não empurra direto para main — para que o CI do site (npm run testar)
+# valide antes de ir ao ar.
+#
+# Requer o secret KIELIMA_SITE_SYNC_TOKEN neste repositório: um token com
+# permissão de leitura/escrita de conteúdo e de pull requests sobre
+# kielima/kielima-site (o GITHUB_TOKEN padrão não alcança outro repositório).
+# Sem esse secret configurado, este workflow falha silenciosamente no
+# checkout do kielima-site — configure em Settings → Secrets and variables →
+# Actions deste repositório.
+name: Sync to kielima-site
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ced-map
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout kielima-site
+        uses: actions/checkout@v4
+        with:
+          repository: kielima/kielima-site
+          token: ${{ secrets.KIELIMA_SITE_SYNC_TOKEN }}
+          path: kielima-site
+
+      - name: Montar /dec (sem camada PWA)
+        run: |
+          set -euo pipefail
+          DEST=kielima-site/public/dec
+          rm -rf "$DEST"
+          mkdir -p "$DEST/js" "$DEST/data"
+          cp style.css "$DEST/style.css"
+          cp js/app.js "$DEST/js/app.js"
+          cp data/banco.json data/ne_110m_countries.geojson data/ne_50m_admin1_slim.geojson data/admin2_top5.geojson "$DEST/data/"
+          # Sem <link rel="manifest">: o /dec do site é só web, sem PWA.
+          # As meta og:url/title já apontam para kielima.com/dec no destino;
+          # preservamos essa versão do index.html em vez de sobrescrever com
+          # a do GitHub Pages, então copiamos o índice deste repo só na
+          # primeira vez (quando ainda não existe) e nas demais sincronizações
+          # atualizamos apenas o corpo, mantendo os metadados do site.
+          if [ ! -f "$DEST/index.html" ]; then
+            grep -v '<link rel="manifest"' index.html > "$DEST/index.html"
+          fi
+
+      - name: Commit e abrir PR no kielima-site
+        working-directory: kielima-site
+        env:
+          GH_TOKEN: ${{ secrets.KIELIMA_SITE_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "ced-map-sync[bot]"
+          git config user.email "ced-map-sync@users.noreply.github.com"
+
+          if git diff --quiet -- public/dec; then
+            echo "Nada mudou em public/dec — nada a sincronizar."
+            exit 0
+          fi
+
+          BRANCH="sync/ced-map-${{ github.event.workflow_run.head_sha }}"
+          git checkout -b "$BRANCH"
+          git add public/dec
+          git commit -m "sync: atualiza /dec a partir de kielima/ced-map@${{ github.event.workflow_run.head_sha }}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "Sync: atualiza /dec (CED Map)" \
+            --body "Sincronização automática a partir de kielima/ced-map@${{ github.event.workflow_run.head_sha }}. Gerado por .github/workflows/sync-to-site.yml em kielima/ced-map." \
+            --base main --head "$BRANCH"

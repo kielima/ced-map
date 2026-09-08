@@ -15,6 +15,28 @@ Leia este arquivo antes de qualquer outra coisa. Ele descreve o projeto, o estad
 **URL em produção:** `https://kielima.github.io/ced-map/`  
 **Repo GitHub:** `https://github.com/kielima/ced-map`
 
+**Também publicado em `kielima.com/dec`** (repositório `kielima/kielima-site`,
+`public/dec/`), desde set/2026. **Este repositório (`ced-map`) é a fonte de
+verdade** — pipeline de dados e código-fonte moram só aqui. O
+`.github/workflows/sync-to-site.yml` sincroniza automaticamente a build
+estática (`index.html`, `style.css`, `js/app.js`, `data/*.json`/`*.geojson`)
+para `kielima-site/public/dec/` a cada push validado em `main`, abrindo um PR
+lá. Requer o secret `KIELIMA_SITE_SYNC_TOKEN` neste repo (token com acesso de
+escrita a `kielima/kielima-site`) — configurar manualmente em Settings →
+Secrets and variables → Actions; sem ele o workflow falha no checkout do
+kielima-site.
+
+Duas diferenças na cópia de `kielima.com/dec`: sem a camada PWA (sem
+`manifest.json`/`sw.js` — só web) e metadados OG/título apontando para
+`kielima.com/dec` em vez de `kielima.github.io/ced-map`. **O GitHub Pages
+deste repositório continua no ar deliberadamente**, por decisão do usuário
+(mantido em paralelo por alguns meses) — não desativar, não redirecionar,
+não remover `manifest.json`/`sw.js` daqui sem pedido explícito. Qualquer
+agente trabalhando neste repositório: mudanças em `index.html`, `style.css`,
+`js/app.js` ou nos dados do `data/` se propagam para `kielima.com/dec`
+automaticamente após o merge em `main` — não é preciso (e não se deve)
+editar `kielima-site/public/dec/` manualmente.
+
 ---
 
 ## Estrutura do repositório
