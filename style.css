@@ -784,6 +784,16 @@ body:has(#admin-banner) #app { padding-top: 28px; }
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
   }
+  /* #app.sidebar-collapsed (fora do media query) tem mais especificidade
+     (ID + classe) que a regra acima (só ID) e vence mesmo aqui dentro,
+     forçando grid-template-columns: 0 1fr — no mobile a sidebar é overlay
+     (position: fixed), não deveria tirar espaço da grid nenhuma. Sem esta
+     regra, como a sidebar começa fechada por padrão, #map-wrap (grid-column:
+     1) cai na coluna de 0px e o mapa fica com largura zero até abrir/fechar
+     a sidebar mudar a classe e destravar a regra certa por um instante. */
+  #app.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
   #sidebar {
     position: fixed;
     top: 0; left: 0; bottom: 0;
