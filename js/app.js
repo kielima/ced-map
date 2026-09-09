@@ -448,6 +448,18 @@ function setupMap(hashState) {
 
   map.on('load', () => onMapLoad(hashState));
   map.on('error', e => console.warn('MapLibre:', e.error?.message));
+
+  // Alguns navegadores mobile (Chrome/Android observado) terminam de pintar
+  // o canvas do WebGL sem compositar o frame na tela — o mapa fica em branco
+  // até QUALQUER reflow externo forçar um novo paint (ex.: abrir/fechar a
+  // sidebar). map.resize() força esse repaint mesmo quando o tamanho do
+  // container não mudou. Chamado após 'load' (quando o estilo já tem algo
+  // para desenhar), de novo depois de layout assentar (mobile troca a altura
+  // da viewport quando a barra de endereço recolhe) e em qualquer resize.
+  const forceRepaint = () => map && map.resize();
+  map.on('load', () => { forceRepaint(); setTimeout(forceRepaint, 300); });
+  window.addEventListener('resize', forceRepaint);
+  window.addEventListener('orientationchange', () => setTimeout(forceRepaint, 300));
 }
 
 /** Pinta todos os layers de água (oceano, lagos, rios) em branco. */
